@@ -1,0 +1,8 @@
+interface:
+  display_name: "wiki-kb"
+  short_description: "Personal wiki workflow for ingesting, reviewing, linking, and maintaining knowledge."
+  brand_color: "#2563EB"
+  default_prompt: "Use $wiki-kb to initialize a vault, process new raw notes into review drafts, and maintain the question index."
+
+policy:
+  allow_implicit_invocation: true

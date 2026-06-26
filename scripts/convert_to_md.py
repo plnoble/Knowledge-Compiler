@@ -1,143 +1,115 @@
 #!/usr/bin/env python3
-"""多格式转换器：将 PDF/DOCX/HTML 等转换为 Markdown 并存入 raw/articles/。
+"""Convert PDF/HTML/TXT/Markdown files into raw/收件箱 Markdown."""
 
-用法: python3 convert_to_md.py <input_file> [--root /path/to/wiki]
-支持: PDF (pdftotext), HTML (basic), TXT (direct)
-"""
-import os, sys, subprocess, re
-from datetime import datetime
+from __future__ import annotations
 
-WIKI = os.environ.get("WIKI_ROOT", "/var/minis/mounts/wiki")
-if "--root" in sys.argv:
-    idx = sys.argv.index("--root")
-    if idx + 1 < len(sys.argv):
-        WIKI = sys.argv[idx + 1]
+import argparse
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(__file__))
+from wiki_dirs import RAW, get_wiki_root
+from wiki_common import slugify, today, write_text
 
 
-def convert_pdf(filepath):
-    """PDF → Markdown via pdftotext。"""
+def convert_pdf(path: Path) -> tuple[str | None, str | None]:
     try:
-        result = subprocess.run(["pdftotext", "-layout", filepath, "-"],
-                               capture_output=True, text=True, timeout=30)
-        if result.returncode != 0:
-            return None, f"pdftotext error: {result.stderr}"
-        text = result.stdout.strip()
-        if not text:
-            return None, "PDF 提取为空（可能是扫描件）"
-        return text, None
+        result = subprocess.run(
+            ["pdftotext", "-layout", str(path), "-"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
     except FileNotFoundError:
-        return None, "pdftotext 未安装 (apk add poppler-utils)"
+        return None, "pdftotext 未安装"
     except subprocess.TimeoutExpired:
         return None, "PDF 转换超时"
+    if result.returncode != 0:
+        return None, result.stderr.strip() or "pdftotext 转换失败"
+    text = result.stdout.strip()
+    return (text, None) if text else (None, "PDF 提取为空，可能是扫描件")
 
 
-def convert_html(filepath):
-    """HTML → 纯文本（简单提取）。"""
-    try:
-        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
-            content = f.read()
-        # 移除 script/style
-        content = re.sub(r'<script[^>]*>.*?</script>', '', content, flags=re.DOTALL)
-        content = re.sub(r'<style[^>]*>.*?</style>', '', content, flags=re.DOTALL)
-        # 移除 HTML 标签
-        content = re.sub(r'<[^>]+>', '\n', content)
-        # 清理空白
-        content = re.sub(r'\n{3,}', '\n\n', content)
-        content = content.strip()
-        return content, None
-    except Exception as e:
-        return None, str(e)
+def convert_html(path: Path) -> tuple[str | None, str | None]:
+    content = path.read_text(encoding="utf-8", errors="replace")
+    content = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r"<style[^>]*>.*?</style>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r"<[^>]+>", "\n", content)
+    content = re.sub(r"\n{3,}", "\n\n", content)
+    content = re.sub(r"[ \t]{2,}", " ", content)
+    return content.strip(), None
 
 
-def convert_txt(filepath):
-    """TXT → 直接读取。"""
-    try:
-        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
-            return f.read().strip(), None
-    except Exception as e:
-        return None, str(e)
+def convert_text(path: Path) -> tuple[str | None, str | None]:
+    return path.read_text(encoding="utf-8", errors="replace").strip(), None
 
 
-def title_from_filename(filepath):
-    """从文件名提取标题。"""
-    name = os.path.basename(filepath)
-    # 去除扩展名
-    for ext in ['.pdf', '.PDF', '.docx', '.DOCX', '.html', '.HTML', '.htm', '.HTM', '.txt', '.TXT']:
-        if name.endswith(ext):
-            name = name[:-len(ext)]
-            break
-    # 清理文件名
-    name = re.sub(r'[/\\:*?"<>|]', '', name)
-    return name.strip()
+def unique_output_path(inbox: Path, base_name: str) -> Path:
+    candidate = inbox / f"{base_name}.md"
+    if not candidate.exists():
+        return candidate
+    counter = 2
+    while True:
+        candidate = inbox / f"{base_name}-{counter}.md"
+        if not candidate.exists():
+            return candidate
+        counter += 1
 
 
-def main():
-    if len(sys.argv) < 2 or sys.argv[1].startswith("--"):
-        print("用法: python3 convert_to_md.py <input_file> [--root /path/to/wiki]")
-        print("支持: PDF, HTML, TXT")
+def convert(path: Path) -> tuple[str | None, str | None]:
+    suffix = path.suffix.lower()
+    if suffix == ".pdf":
+        return convert_pdf(path)
+    if suffix in {".html", ".htm"}:
+        return convert_html(path)
+    if suffix in {".txt", ".md", ".markdown"}:
+        return convert_text(path)
+    return None, f"不支持的文件类型：{suffix or '(无扩展名)'}"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Convert a file into raw/收件箱 Markdown")
+    parser.add_argument("input_file", help="PDF/HTML/TXT/Markdown file")
+    parser.add_argument("--root", "--wiki-root", help="Wiki root")
+    args = parser.parse_args()
+
+    source = Path(args.input_file)
+    if not source.exists() or not source.is_file():
+        print(f"错误：文件不存在：{source}", file=sys.stderr)
         sys.exit(1)
 
-    filepath = sys.argv[1]
-    if not os.path.exists(filepath):
-        print(f"Error: 文件不存在: {filepath}")
-        sys.exit(1)
-
-    # 检测格式
-    ext = os.path.splitext(filepath)[1].lower()
-    converters = {
-        '.pdf': convert_pdf,
-        '.html': convert_html,
-        '.htm': convert_html,
-        '.txt': convert_txt,
-    }
-
-    if ext not in converters:
-        print(f"Error: 不支持的格式: {ext}")
-        print(f"支持的格式: {', '.join(converters.keys())}")
-        sys.exit(1)
-
-    print(f"转换: {filepath}")
-    print(f"格式: {ext}")
-
-    # 转换
-    text, error = converters[ext](filepath)
+    content, error = convert(source)
     if error:
-        print(f"Error: {error}")
+        print(f"错误：{error}", file=sys.stderr)
         sys.exit(1)
 
-    # 生成 markdown
-    title = title_from_filename(filepath)
-    today = datetime.now().strftime("%Y-%m-%d")
-    filename = f"{title}.md"
-    output_path = os.path.join(WIKI, "raw", "articles", filename)
-
-    # 检查是否已存在
-    if os.path.exists(output_path):
-        print(f"跳过: {filename} 已存在")
-        sys.exit(0)
-
-    # 包装为 markdown
+    root = get_wiki_root(override=args.root)
+    inbox = root / RAW["收件箱"]
+    inbox.mkdir(parents=True, exist_ok=True)
+    output = unique_output_path(inbox, slugify(source.stem, "converted"))
+    title = source.stem
     markdown = f"""---
-title: "{title}"
-created: {today}
-source: "{os.path.basename(filepath)}"
-type: raw
+title: {title}
+created: {today()}
+updated: {today()}
+type: source
+status: 收件箱
+tags: [收件箱]
+sources:
+  - {source}
 ---
 
 # {title}
 
-{text}
+{content}
 """
-
-    # 保存
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(markdown)
-
-    print(f"标题: {title}")
-    print(f"字数: {len(text)}")
-    print(f"保存: raw/articles/{filename}")
-    print(f"\n完成! 下一步: 告诉 Minis「加工这篇文章」")
+    write_text(output, markdown)
+    print(f"转换完成：{output.relative_to(root)}")
 
 
 if __name__ == "__main__":

@@ -1,67 +1,123 @@
 #!/usr/bin/env python3
-"""自主研究助手：识别知识空白，生成研究议程，建议搜索查询。
-
-用法: python3 auto_research.py [--root /path/to/wiki]
-输出: _meta/research-agenda.md
 """
-import os, re, sys
-from datetime import datetime
+auto_research.py — 自主研究助手 v3（Loop 3：研究闭环）
+
+识别知识空白，生成研究议程，追踪议题状态（pending/in-progress/done）。
+Loop 3 核心：空白 → 研究 → 填补 → 新空白（永续循环）。
+
+v3 新增：
+  - 中文目录路径
+  - 议题状态追踪（pending/in-progress/done）
+  - 跳过 done 状态议题，聚焦新空白
+  - 持久化议程到 _meta/research-agenda.md
+
+用法:
+  python3 scripts/auto_research.py [--root /path/to/wiki]
+  python3 scripts/auto_research.py --status   # 只显示议题状态统计
+"""
+import os
+import re
+import sys
 from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
 
-WIKI = os.environ.get("WIKI_ROOT", "/var/minis/mounts/wiki")
-if "--root" in sys.argv:
-    idx = sys.argv.index("--root")
-    if idx + 1 < len(sys.argv):
-        WIKI = sys.argv[idx + 1]
+sys.path.insert(0, os.path.dirname(__file__))
+from wiki_dirs import get_wiki_root, ALL_PAGE_DIRS, META_FILES
 
-DIRS = ["entities", "concepts", "comparisons", "queries", "synthesis"]
-PAGE_DIRS = ["entities", "concepts", "comparisons", "queries"]
 today = datetime.now().strftime("%Y-%m-%d")
 
+PAGE_DIRS = ["实体", "概念", "对比", "查询"]
 
-def strip_fm(c):
+
+def strip_fm(c: str) -> str:
     if c.startswith("---"):
         e = c.find("\n---", 3)
         if e != -1:
-            return c[e+4:]
+            return c[e + 4:]
     return c
 
 
-def extract_links(body):
+def extract_links(body: str) -> list[str]:
     raw = re.findall(r'\[\[([^\]]+)\]\]', body)
     return [l.split("|")[0].split("#")[0].strip()
             for l in raw if l.split("|")[0].split("#")[0].strip()]
 
 
+def load_existing_agenda(agenda_path: Path) -> dict[str, str]:
+    """
+    从已有的 research-agenda.md 加载议题状态。
+    返回 {议题关键词: status}，status in {pending, in-progress, done}。
+    """
+    if not agenda_path.exists():
+        return {}
+    content = agenda_path.read_text(encoding="utf-8")
+    result = {}
+    for line in content.splitlines():
+        # 匹配格式：- [x] 议题 (status: done) 或 - [ ] 议题
+        done_match = re.match(r'^-\s*\[x\]\s+(.+?)(?:\s+\(.*\))?$', line)
+        prog_match = re.match(r'^-\s*\[>\]\s+(.+?)(?:\s+\(.*\))?$', line)
+        pend_match = re.match(r'^-\s*\[\s*\]\s+(.+?)(?:\s+\(.*\))?$', line)
+        if done_match:
+            result[done_match.group(1).strip()] = "done"
+        elif prog_match:
+            result[prog_match.group(1).strip()] = "in-progress"
+        elif pend_match:
+            result[pend_match.group(1).strip()] = "pending"
+    return result
+
+
 def main():
-    print("=== 自主研究助手 ===\n")
+    import argparse
+    parser = argparse.ArgumentParser(description="自主研究助手 v3")
+    parser.add_argument("--root", "--wiki-root", help="wiki 根目录路径")
+    parser.add_argument("--status", action="store_true", help="只显示议题状态统计")
+    args = parser.parse_args()
+
+    WIKI = get_wiki_root(override=args.root)
+
+    print("=== 自主研究助手 v3（Loop 3：研究闭环）===\n")
+
+    # 加载已有议程
+    agenda_path = WIKI / META_FILES["agenda"]
+    existing = load_existing_agenda(agenda_path)
+    done_count = sum(1 for s in existing.values() if s == "done")
+    pending_count = sum(1 for s in existing.values() if s == "pending")
+    inprog_count = sum(1 for s in existing.values() if s == "in-progress")
+
+    if args.status:
+        print(f"📊 研究议程状态：")
+        print(f"  - ✅ 已完成：{done_count} 条")
+        print(f"  - 🔄 进行中：{inprog_count} 条")
+        print(f"  - ⏳ 待研究：{pending_count} 条")
+        return
 
     # 1. 加载所有页面
-    pages = {}  # name -> {path, type, content, links, is_wip, line_count}
-    for d in DIRS:
-        dp = os.path.join(WIKI, d)
-        if not os.path.isdir(dp):
+    pages = {}
+    for d in ALL_PAGE_DIRS:
+        dp = WIKI / d
+        if not dp.is_dir():
             continue
-        for f in os.listdir(dp):
-            if not f.endswith(".md"):
-                continue
-            name = f[:-3]
-            path = os.path.join(dp, f)
-            with open(path, "r", encoding="utf-8", errors="replace") as fh:
-                content = fh.read()
-            body = strip_fm(content)
-            links = extract_links(body)
-            is_wip = "tags: [wip]" in content or "tags: [wip," in content
-            text_lines = [l.strip() for l in body.split("\n")
-                         if l.strip() and not l.strip().startswith("#")
-                         and not l.strip().startswith("---")
-                         and not l.strip().startswith("> [!")]
-            line_count = len(text_lines)
-            pages[name] = {
-                "path": path, "type": d.rstrip("s"), "content": content,
-                "links": links, "is_wip": is_wip, "line_count": line_count,
-                "dir": d
-            }
+        for f in dp.glob("*.md"):
+            try:
+                content = f.read_text(encoding="utf-8", errors="replace")
+                body = strip_fm(content)
+                links = extract_links(body)
+                is_wip = bool(re.search(r'tags:.*wip', content, re.IGNORECASE))
+                text_lines = [l.strip() for l in body.split("\n")
+                             if l.strip() and not l.strip().startswith("#")
+                             and not l.strip().startswith("---")
+                             and not l.strip().startswith("> [!")]
+                pages[f.stem] = {
+                    "path": f, "dir": d, "content": content,
+                    "links": links, "is_wip": is_wip, "line_count": len(text_lines)
+                }
+            except Exception:
+                pass
+
+    if not pages:
+        print("⚠️  知识库为空，先加工一些文章再运行研究助手。")
+        return
 
     # 2. 计算入站链接
     inbound = defaultdict(int)
@@ -71,137 +127,177 @@ def main():
                 inbound[link] += 1
 
     # 3. 识别知识空白
-    # 3a. wip 页面（按入站链接排序 = 重要性）
     wip_pages = []
     for name, data in pages.items():
         if data["is_wip"] and data["dir"] in PAGE_DIRS:
             wip_pages.append({
-                "name": name, "type": data["type"],
+                "name": name, "dir": data["dir"],
                 "inbound": inbound.get(name, 0),
                 "outbound": len(data["links"]),
             })
     wip_pages.sort(key=lambda x: -x["inbound"])
 
-    # 3b. 内容稀少页面（<5 行正文，非 wip）
-    sparse_pages = []
-    for name, data in pages.items():
-        if (not data["is_wip"] and data["dir"] in PAGE_DIRS
-            and data["line_count"] < 5 and data["line_count"] > 0):
-            sparse_pages.append({
-                "name": name, "type": data["type"],
-                "inbound": inbound.get(name, 0),
-                "lines": data["line_count"],
-            })
+    sparse_pages = [
+        {"name": name, "dir": data["dir"],
+         "inbound": inbound.get(name, 0), "lines": data["line_count"]}
+        for name, data in pages.items()
+        if data["line_count"] < 5 and not data["is_wip"] and data["dir"] in PAGE_DIRS
+    ]
     sparse_pages.sort(key=lambda x: -x["inbound"])
 
-    # 3c. 孤儿页面（无入站链接，非 wip，有内容）
-    orphans = []
+    # 悬挂引用（被引用但不存在的页面）
+    all_links_in_wiki = set()
+    for data in pages.values():
+        all_links_in_wiki.update(data["links"])
+    dangling = sorted(all_links_in_wiki - set(pages.keys()))
+
+    # 重要页面覆盖率（入站链接多，但出站链接少）
+    low_context = [
+        {"name": name, "inbound": inbound.get(name, 0), "outbound": len(data["links"])}
+        for name, data in pages.items()
+        if inbound.get(name, 0) >= 3 and len(data["links"]) < 2
+        and data["dir"] in PAGE_DIRS
+    ]
+    low_context.sort(key=lambda x: -x["inbound"])
+
+    # P-index 覆盖缺口：概念/实体页应至少有一个问题页指向它。
+    p_index_dir = WIKI / "问题索引"
+    p_index_text = ""
+    if p_index_dir.is_dir():
+        for f in sorted(p_index_dir.glob("*.md")):
+            try:
+                p_index_text += "\n" + f.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+    p_index_gaps = [
+        {"name": name, "dir": data["dir"], "inbound": inbound.get(name, 0)}
+        for name, data in pages.items()
+        if data["dir"] in ["概念", "实体"]
+        and f"[[{name}]]" not in p_index_text
+        and f"[[{data['dir']}/{name}]]" not in p_index_text
+    ]
+    p_index_gaps.sort(key=lambda x: (-x["inbound"], x["name"]))
+
+    # 4. 生成研究议程（跳过已完成议题）
+    new_items = []
+
+    for p in wip_pages[:5]:
+        topic = f"深化「{p['name']}」（WIP，被引用 {p['inbound']} 次）"
+        if existing.get(topic) == "done":
+            continue
+        new_items.append(topic)
+
+    for p in sparse_pages[:5]:
+        topic = f"扩展「{p['name']}」（内容稀少，被引用 {p['inbound']} 次）"
+        if existing.get(topic) == "done":
+            continue
+        new_items.append(topic)
+
+    for d in dangling[:10]:
+        topic = f"创建缺失页面「{d}」（被多处引用但不存在）"
+        if existing.get(topic) == "done":
+            continue
+        new_items.append(topic)
+
+    for p in low_context[:3]:
+        topic = f"补充「{p['name']}」的上下文（高被引但出站链接少）"
+        if existing.get(topic) == "done":
+            continue
+        new_items.append(topic)
+
+    for p in p_index_gaps[:5]:
+        topic = f"补充「{p['name']}」的 P-index 问题索引（P-index 未覆盖）"
+        if existing.get(topic) == "done":
+            continue
+        new_items.append(topic)
+
+    # 5. 生成搜索查询建议
+    domain_terms = set()
     for name, data in pages.items():
-        if (data["dir"] in PAGE_DIRS and not data["is_wip"]
-            and data["line_count"] >= 5 and inbound.get(name, 0) == 0):
-            orphans.append({
-                "name": name, "type": data["type"],
-                "lines": data["line_count"],
-            })
-    orphans.sort(key=lambda x: -x["lines"])
+        if data["dir"] in ["概念", "实体"] and inbound.get(name, 0) >= 2:
+            domain_terms.add(name)
+    top_terms = sorted(domain_terms, key=lambda x: -inbound.get(x, 0))[:8]
 
-    # 3d. 高价值空白（被多次引用但不存在的页面 = 断链目标）
-    missing_targets = defaultdict(int)
-    for name, data in pages.items():
-        for link in data["links"]:
-            if link not in pages:
-                missing_targets[link] += 1
-    high_value_gaps = sorted(missing_targets.items(), key=lambda x: -x[1])
-
-    # 4. 生成研究议程
-    out = []
-    out.append("# 研究议程 — 知识空白分析")
-    out.append(f"\n> 自动生成于 {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    out.append(f"> 总页面: {len(pages)} | wip: {len(wip_pages)} | 稀少: {len(sparse_pages)} | 孤儿: {len(orphans)}")
-    out.append("")
-
-    # 高优先级：被多次引用的 wip 页面
-    out.append("## 🔴 高优先级：被引用的 wip 页面")
-    out.append("\n这些页面被其他页面引用，填充后能显著提升知识网络连通性。")
-    out.append("")
-    high_priority = [p for p in wip_pages if p["inbound"] >= 2][:30]
-    if high_priority:
-        for i, p in enumerate(high_priority, 1):
-            out.append(f"{i}. **[[{p['name']}]]** ({p['type']}) — 入链: {p['inbound']}")
-    else:
-        out.append("- 无")
-
-    # 中优先级：高入站的稀少页面
-    out.append("\n## 🟡 中优先级：内容稀少但被引用的页面")
-    out.append("\n这些页面有内容但太少，值得扩充。")
-    out.append("")
-    medium_priority = [p for p in sparse_pages if p["inbound"] >= 1][:20]
-    if medium_priority:
-        for i, p in enumerate(medium_priority, 1):
-            out.append(f"{i}. **[[{p['name']}]]** ({p['type']}) — {p['lines']}行, 入链: {p['inbound']}")
-    else:
-        out.append("- 无")
-
-    # 研究主题建议
-    out.append("\n## 📚 建议研究主题")
-    out.append("\n基于 wip 页面的主题聚类，建议以下研究方向：")
-    out.append("")
-
-    # 按主题聚类 wip 页面
-    topic_clusters = defaultdict(list)
-    for p in wip_pages[:100]:
-        # 简单聚类：按名称中的关键词
-        name = p["name"]
-        if "etf" in name.lower() or "fund" in name.lower() or "index" in name.lower():
-            topic_clusters["ETF/基金/指数"].append(p["name"])
-        elif "stock" in name.lower() or "market" in name.lower() or "trade" in name.lower():
-            topic_clusters["股票/市场/交易"].append(p["name"])
-        elif "valuation" in name.lower() or "pe" in name.lower() or "pb" in name.lower():
-            topic_clusters["估值分析"].append(p["name"])
-        elif "ai" in name.lower() or "llm" in name.lower() or "agent" in name.lower():
-            topic_clusters["AI/LLM/Agent"].append(p["name"])
-        elif "invest" in name.lower() or "portfolio" in name.lower() or "asset" in name.lower():
-            topic_clusters["投资策略/资产配置"].append(p["name"])
-        elif "心理" in name or "emotion" in name.lower() or "fear" in name.lower() or "greed" in name.lower():
-            topic_clusters["投资心理"].append(p["name"])
-        else:
-            topic_clusters["其他"].append(p["name"])
-
-    for topic, pages_list in sorted(topic_clusters.items(), key=lambda x: -len(x[1])):
-        out.append(f"### {topic} ({len(pages_list)} 个待填充)")
-        out.append(f"- 建议搜索: \"{topic} 投资 指数\" 或 \"{topic} 知识体系\"")
-        out.append(f"- 代表页面: {', '.join(f'[[{p}]]' for p in pages_list[:5])}")
-        out.append("")
-
-    # 搜索查询建议
-    out.append("## 🔍 建议搜索查询")
-    out.append("\n可直接复制到搜索栏的查询：")
-    out.append("")
     search_queries = []
-    for p in wip_pages[:20]:
-        name = p["name"].replace("-", " ")
-        search_queries.append(f"- \"{name}\" — 填充 [[{p['name']}]]")
-    for q in search_queries:
-        out.append(q)
+    for term in top_terms:
+        search_queries.append(f"「{term}」最新发展 2026")
+    if dangling[:3]:
+        for d in dangling[:3]:
+            search_queries.append(f"「{d}」是什么")
 
-    # 孤儿页面（需要交叉引用）
-    out.append("\n## 🔗 孤儿页面（需要交叉引用）")
-    out.append(f"\n这些页面有内容但没有被任何页面链接，需要添加交叉引用。")
-    out.append(f"\n前 20 个：")
-    for p in orphans[:20]:
-        out.append(f"- [[{p['name']}]] ({p['type']}, {p['lines']}行)")
+    # 6. 构建议程报告
+    lines = [
+        f"# 研究议程",
+        f"",
+        f"> 生成时间：{today}",
+        f"> 状态：✅ 已完成 {done_count} | 🔄 进行中 {inprog_count} | ⏳ 待研究 {pending_count}",
+        f"> Loop 3：空白 → 研究 → 填补 → 新空白（永续循环）",
+        f"",
+        f"## 新发现的研究议题",
+        f"",
+    ]
 
-    # 写入
-    agenda_path = os.path.join(WIKI, "_meta", "research-agenda.md")
-    with open(agenda_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(out))
+    if not new_items:
+        lines.append("- ✅ 暂无新知识空白，知识库相对完整！")
+    else:
+        for item in new_items:
+            status = existing.get(item, "pending")
+            checkbox = "[x]" if status == "done" else ("[>]" if status == "in-progress" else "[ ]")
+            lines.append(f"- {checkbox} {item}")
 
-    # 终端摘要
-    print(f"wip 页面: {len(wip_pages)} (高优先级: {len(high_priority)})")
-    print(f"稀少页面: {len(sparse_pages)} (中优先级: {len(medium_priority)})")
-    print(f"孤儿页面: {len(orphans)}")
-    print(f"研究主题: {len(topic_clusters)} 个")
-    print(f"\n已保存: _meta/research-agenda.md")
+    lines += [
+        "",
+        "## 建议搜索查询",
+        "",
+    ]
+    for q in search_queries[:8]:
+        lines.append(f"- {q}")
+
+    lines += [
+        "",
+        "## 知识库快照",
+        "",
+        f"- 总页面数：{len(pages)}",
+        f"- WIP 页面：{len(wip_pages)}",
+        f"- 稀少页面（<5行）：{len(sparse_pages)}",
+        f"- 悬挂引用（未创建页面）：{len(dangling)}",
+        f"- P-index 未覆盖页面：{len(p_index_gaps)}",
+        "",
+        "## 已完成的研究（Loop 3 历史）",
+        "",
+    ]
+
+    done_items = [(k, v) for k, v in existing.items() if v == "done"]
+    if done_items:
+        for item, _ in done_items[-10:]:  # 最近 10 条
+            lines.append(f"- [x] {item}")
+    else:
+        lines.append("- （暂无完成记录）")
+
+    lines += ["", "---", f"_由 auto_research.py v3 生成于 {today}_"]
+
+    report = "\n".join(lines)
+
+    # 打印摘要
+    print(f"📊 知识库现状：")
+    print(f"  总页面：{len(pages)}，WIP：{len(wip_pages)}，稀少：{len(sparse_pages)}，悬挂引用：{len(dangling)}")
+    print(f"\n📋 新研究议题（{len(new_items)} 条）：")
+    for item in new_items[:5]:
+        print(f"  - {item}")
+    if len(new_items) > 5:
+        print(f"  ... 还有 {len(new_items) - 5} 条")
+
+    print(f"\n🔍 建议搜索：")
+    for q in search_queries[:3]:
+        print(f"  - {q}")
+
+    # 写入文件
+    meta_dir = WIKI / "_meta"
+    meta_dir.mkdir(parents=True, exist_ok=True)
+    agenda_path.write_text(report, encoding="utf-8")
+    print(f"\n✅ 研究议程已更新：_meta/research-agenda.md")
+    print(f"   告诉 Minis「深入研究 [议题名称]」来处理某个议题")
+    print(f"   Minis 处理完后，将对应条目从 [ ] 改为 [x]")
 
 
 if __name__ == "__main__":

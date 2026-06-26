@@ -1,0 +1,21 @@
+# Local agent/runtime state
+.omx/
+.agents/
+.claude/
+
+# Reference material used during development; not part of the publishable skill
+Refer/
+
+# Python/runtime caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+
+# Temporary vaults and local smoke artifacts
+tmp/
+temp/
+*.tmp

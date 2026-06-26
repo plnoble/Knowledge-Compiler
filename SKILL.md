@@ -1,409 +1,156 @@
 ---
 name: wiki-kb
-description: 个人 Obsidian 知识库管理。当用户说"知识库"、"wiki"、"采集文章"、"录入知识库"、"整理知识"、"保存到知识库"、"添加到知识库"、"加到wiki"、"知识库健康"、"知识库检查"、"Obsidian笔记"、"学习笔记"、"第二大脑"、"知识库查询"时触发。支持：URL/文本/文件采集 → AI自动分析加工为概念页/实体页/对比页 → 健康检查与维护 → 知识库查询。与 Obsidian vault 完全兼容，通过 iCloud 自动同步。
+description: Manage a personal Obsidian wiki-kb for AI/automation, investment, Hong Kong/action planning, and knowledge-management notes using Chinese vault directories, semantic review drafts, manuals, P-index, candidate cards, and Loop Engineering. Use when Codex/Minis needs to ingest external sources, compile raw/收件箱 material into reviewable knowledge updates, query personal knowledge, update manuals, create or promote candidate cards, trigger gap-based Deep Research, run health/maintenance/search tools, or edit this wiki-kb skill and scripts.
 ---
 
-# Wiki 知识库管理
+# wiki-kb v3
 
-## 位置与结构
+> Wiki 才是产品，对话只是界面。好的回答不要消失在聊天记录里；把可复用知识编译进 Wiki。
 
-Wiki 根目录: `/var/minis/mounts/wiki/`（Obsidian vault，iCloud Drive 自动同步，Minis 修改后 Obsidian 端即时可见）
+## Start Here
 
-```
-wiki/
-├── SCHEMA.md          # 规范（页面规则、标签分类，首次操作前必读）
-├── index.md           # 内容目录（按类型分类，每页一行摘要）
-├── log.md             # 操作日志（仅追加）
-├── raw/               # 原始来源（不可变，加工后不改不删）
-│   ├── articles/      # 网页文章（待加工 inbox）
-│   ├── processed/     # 已加工文章（归档，仍可引用）
-│   ├── papers/        # PDF/论文
-│   ├── transcripts/   # 笔记/访谈/灵感
-│   └── assets/        # 图片/图表
-├── entities/          # 实体页面（人、产品、公司、指数）
-├── concepts/          # 概念页面（理论、方法、策略）
-├── comparisons/       # 对比分析
-├── queries/           # 查询结果
-├── synthesis/         # 合成页（查询回答回填）
-├── _archive/          # 归档内容
-└── _meta/             # 元信息（健康报告、图谱、缓存等）
-```
+每次处理真实知识库任务时先做：
 
-**领域**: AI 与自动化（智能代理、LLM、知识管理、工具平台）+ 投资体系（指数基金、ETF、资产配置、估值、投资心理）。领域外内容不加工。
+1. 读 `_meta/hot.md`，了解近期状态。
+2. 读 `index.md`，避免重复创建页面。
+3. 只读取当前任务需要的 3-5 个相关页面。
+4. 结束前更新 `_meta/hot.md`，并在需要时更新 `index.md`、`log.md`、manifest。
 
-**Obsidian 链接解析**: `[[]]` 跨目录解析——`raw/articles/` 和 `raw/processed/` 中的文章均可被 `[[文章标题]]` 直接引用，无需移动文件。
+如果要创建页面、检查目录或写 frontmatter，读 [目录与 Frontmatter](references/structure-frontmatter.md)。
 
-**首次操作前**: 读一遍 `SCHEMA.md` 了解标签分类和页面规则。
+如果要执行摄入、审阅、查询、Skill 蒸馏、候选卡、研究或日记提炼，读 [工作流细节](references/workflows.md)。
 
-### 快捷命令
+如果要维护、健康检查、研究议程、知识老化或排查命令，读 [Loop 与维护](references/loops-maintenance.md)。
+
+处理领域资料时按需读取：投资读 [投资体系 Playbook](references/domain-investment.md)；Codex/AI 工具读 [AI 与 Codex 工具 Playbook](references/domain-ai-tools.md)；香港/出行读 [香港与出行 Playbook](references/domain-hong-kong.md)。
+
+## Core Rules
+
+- `raw/` 是原始来源区；不要修改或删除原文。加工结果写入 `raw/待审/` 或知识页。
+- 创建页面前查 `index.md` 和目标目录；同主题页面优先更新，不重复创建。
+- 质量优先；一篇文章宁可沉淀 3 个扎实页面，不要铺 10 个浅页面。
+- 遇到新旧信息冲突，不覆盖旧结论；用 `[!矛盾]` 标注，详见 `references/workflows.md`。
+- 输出给用户的回答若有长期价值，询问是否存入 `查询/` 或 `合成/`。
+- 目录、标签、正文优先中文；普通文件名优先英文小写连字符。
+- 脚本接口以 `scripts/wiki.sh` 为准；不要凭旧文档猜命令。
+
+## Command Surface
+
+在 Minis 中通常使用：
 
 ```bash
-S=/var/minis/skills/wiki-kb/scripts
-sh $S/wiki.sh health          # 健康检查
-sh $S/wiki.sh fix             # 自动修复
-sh $S/wiki.sh maintain        # 批量维护（sources 字段）
-sh $S/wiki.sh search "ETF"    # BM25 搜索
-sh $S/wiki.sh all             # 全量维护（一键执行全部）
-sh $S/wiki.sh                 # 查看所有命令
+sh /var/minis/skills/wiki-kb/scripts/wiki.sh <command> [args]
 ```
 
----
-
-## 工作流 1：采集 (Ingest)
-
-将外部资源存入 `raw/` 对应目录。
-
-### URL → 文章
-
-1. 用 `web-content-extractor` 技能提取网页正文为 Markdown
-2. 生成文件名：取文章标题，空格→连字符
-3. 检查 `raw/articles/` 和 `raw/processed/` 是否已有同名文件，有则跳过
-4. 保存到 `raw/articles/文件名.md`
-5. 立即进入工作流 2（加工）
-
-### 加工完成后
-
-加工完毕，将文章从 `raw/articles/` 移到 `raw/processed/`：
-```bash
-mv raw/articles/文章名.md raw/processed/
-```
-这样 `raw/articles/` 始终只保留待加工的新文章（inbox），`raw/processed/` 归档已处理内容。
-
-### 文本 → 笔记
-
-1. 用户直接提供文本内容
-2. 简要命名，保存到 `raw/transcripts/文件名.md`
-3. 进入加工流程
-
-### 文件
-
-1. 用户提供文件路径
-2. 按类型复制到 `raw/` 子目录：
-   - `.md`/`.txt` → `raw/articles/`
-   - `.pdf` → 先用 `convert_to_md.py` 转换为 Markdown，再存入 `raw/articles/`
-   - `.png`/`.jpg`/`.webp` → `raw/assets/`
-3. PDF 转换：`python3 scripts/convert_to_md.py <file.pdf>`
-4. 进入加工流程
-
----
-
-## 工作流 2：加工 (Process)
-
-分析 raw 内容，创建或更新知识页面。这是核心流程。
-
-### 步骤
-
-1. **读取** raw 文章全文
-2. **识别** 文章中的实体（人、产品、公司、指数）和概念（理论、方法、策略）
-3. **查重** — 对每个识别项，用 `ls entities/ concepts/` 检查是否已有同名页面
-4. **决策**（按 SCHEMA 阈值）：
-   - 已有页面 + 新信息 → **更新**该页面，追加内容，更新 `updated` 日期和 `sources`
-   - 2+ 来源提及 or 对该来源是核心内容 → **创建**新页面
-   - 仅提及/次要细节/超出领域 → **跳过**
-5. **编写页面** — 遵循页面模板（见下方），每页至少 2 个 `[[wikilink]]` 出站链接
-6. **更新 index.md** — 对应分类下添加 `- [[page-name]] - 一行摘要`
-7. **追加 log.md** — 格式见下方
-
-### 页面命名
-
-小写、连字符、无空格、无中文（如 `asset-allocation`、`etf`、`greed-fear`）
-
-### 标签
-
-从 SCHEMA.md 标签分类中选取。如需新标签，先在 SCHEMA.md 的 Tag Taxonomy 添加。
-
-### 加工原则
-
-- **提取精华**，不是复制粘贴。用自己的话总结，保留关键数据和逻辑链
-- **交叉链接**。新页面至少链接 2 个相关页面；同时检查被链接页面是否需要反向链接回来
-- **标注来源**。frontmatter `sources` 字段填写 raw 文件路径（必填！零幻觉强制）
-- **标注置信度**。frontmatter `confidence` 字段根据来源数量和内容质量填写
-- **冲突处理**。新信息与已有内容矛盾时，保留两者并标注日期，frontmatter 加 `contradictions: [page-name]`
-- **零幻觉**。每个声明必须可追溯到 raw 来源。无法找到来源的声明标注 `<!-- 待验证 -->` 或移除
-
-### log.md 格式
-
-```
-## [YYYY-MM-DD] 操作标题
-- 操作内容1
-- 操作内容2
-- 新增页面: [[page1]], [[page2]]
-- 更新页面: [[page3]]
-```
-
----
-
-## 工作流 3：维护 (Maintain)
-
-### 健康检查
+在本地仓库调试可直接运行：
 
 ```bash
-python3 /var/minis/skills/wiki-kb/scripts/health_check.py
+python scripts/verify_static.py
+python -m unittest tests.test_script_integrity
+python scripts/smoke_wiki_sh.py
 ```
 
-保存报告到 `_meta/`：
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/health_check.py > /var/minis/mounts/wiki/_meta/health-report.md
-```
-
-检查项：断链、frontmatter 格式、页面大小（>200行）、出站链接数（<2）。
-链接验证包含 `raw/articles/` 和 `raw/processed/`（Obsidian 跨目录解析）。
-
-### 知识图谱
+常用命令：
 
 ```bash
-python3 /var/minis/skills/wiki-kb/scripts/build_graph.py
+# 会话与维护
+wiki.sh init --root <vault>
+wiki.sh cache
+wiki.sh health
+wiki.sh health-save
+wiki.sh all
+
+# 摄入周边
+wiki.sh ingest-draft raw/收件箱/xxx.md
+wiki.sh compile-source raw/收件箱/xxx.md
+wiki.sh review
+wiki.sh convert <文件>
+
+# 查询与导航
+wiki.sh search "关键词"
+wiki.sh graph
+wiki.sh moc
+wiki.sh p-index
+wiki.sh p-index --generate
+
+# Loop 工具
+wiki.sh auto-research
+wiki.sh research-status
+wiki.sh research "主题"
+
+# 沉淀与孵化
+wiki.sh skill 概念/xxx.md
+wiki.sh candidate 概念/xxx.md --name "项目名称"
+wiki.sh candidate --idea "想法文字"
+wiki.sh candidate-from-draft raw/待审/xxx.semantic.md --index 1
+wiki.sh merge-manual raw/待审/xxx.semantic.md
+
+# 日记
+wiki.sh journal
+wiki.sh journal --list
+wiki.sh journal --extract
+wiki.sh review-stale
 ```
 
-生成交互式知识图谱：`_meta/graph.json`（数据）+ `_meta/graph.html`（可视化）。
-图谱特性：节点大小=被引用次数、颜色=页面类型、支持搜索/过滤/缩放。
+## Workflow Index
 
-### 会话记忆
+### WF1 摄入
 
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/build_hot_cache.py
-```
+用于“加工文章、录入知识库、保存到知识库”。先把原文编译成语义待审稿，再由用户批准知识页、手册、P-index、候选卡或研究缺口。细节见 [工作流细节](references/workflows.md#WF1-摄入)。
 
-生成 `_meta/hot-cache.md`：最近操作、最近修改的页面、知识空白（wip 页面、内容稀少页面）。
-**每次会话开始时先读 hot-cache.md**，无需重新扫描全部页面。
+### WF2 审阅
 
-### 自主研究
+用户在 Obsidian 中把待审稿改为 `status: approved` 或 `status: rejected`，然后运行 `wiki.sh review`。通过后进入目标目录；退回后等待重生成。细节见 [工作流细节](references/workflows.md#WF2-审阅)。
 
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/auto_research.py
-```
+### WF3 查询
 
-识别知识空白，生成研究议程：`_meta/research-agenda.md`。
-分析 wip 页面（按重要性排序）、内容稀少页面、孤儿页面、主题聚类，建议搜索查询。
+用于“知识库查询、问已有知识”。先读 hot cache 和 index，再读少量相关页，回答时引用 `[[页面名]]`。细节见 [工作流细节](references/workflows.md#WF3-查询)。
 
-### MOC 导航页
+### WF4 Skill 蒸馏
 
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/build_moc.py
-```
+用于“蒸馏技能、提炼判断框架、生成 skill”。生成草稿到 `技能/待审/`，规则必须可证伪、有适用边界。细节见 [工作流细节](references/workflows.md#WF4-Skill-蒸馏)。
 
-按主题聚类页面，生成 MOC（Map of Content）导航中心：
-- 📊 MOC-投资体系
-- 🤖 MOC-AI与自动化
-- 🧠 MOC-知识管理
-- 🗺️ MOC-知识地图（总入口）
+### WF5 候选项目
 
-### 多格式转换
+用于“候选项目、生成候选卡、孵化这个想法”。语义摄入先生成候选建议，用户批准后再输出到 `候选/`，聚焦核心问题、知识支撑和待验证假设。细节见 [工作流细节](references/workflows.md#WF5-候选项目)。
 
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/convert_to_md.py <file.pdf>
-```
+### WF6 Deep Research
 
-支持：PDF（pdftotext）、HTML、TXT。转换后存入 `raw/articles/`，自动跳过已存在的文件。
+用于“深度研究、联网研究、研究一下”。脚本生成议程和接收结果，联网搜索由 Minis 原生能力完成，报告写入 `raw/收件箱/` 后再走摄入。细节见 [工作流细节](references/workflows.md#WF6-Deep-Research)。
 
-### 自动修复
+### WF7 日记
 
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/fix_health.py
-```
+用于“日记、写日记、从日记提炼知识”。日记默认不主动处理；用户明确要求提炼时才读日记并走摄入。细节见 [工作流细节](references/workflows.md#WF7-日记提炼)。
 
-修复项：格式补全、断链占位页创建、出站链接补充、超大页面拆分。
-脚本预加载所有页面到内存 + 关键词倒排索引，适用于 3000+ 页面的大型知识库。
+### WF8 查询存档
 
-### 批量维护
+用于把高质量回答存入 `查询/` 或 `合成/`。先询问用户，再创建页面。细节见 [工作流细节](references/workflows.md#WF8-查询存档)。
 
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/maintain.py
-```
+### WF9 健康与维护
 
-回填高频被引用页面的 sources 字段（自动匹配 raw/articles/ 和 raw/processed/ 中的原始文件）。
+用于“健康检查、知识库检查、维护、知识老化、研究议程”。运行 `wiki.sh health` 或相关维护命令。细节见 [Loop 与维护](references/loops-maintenance.md)。
 
-### 置信度检查 + 零幻觉验证
+## Initialization Check
 
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/check_confidence.py        # 仅检查
-python3 /var/minis/skills/wiki-kb/scripts/check_confidence.py --fix  # 检查 + 自动添加 confidence 字段
-```
+首次使用或用户说“初始化/检查 wiki-kb”时：
 
-分析页面来源引用和内容质量，自动判定置信度等级（high/medium/low/quarantine）。
-报告保存到 `_meta/confidence-report.md`。
+1. 检查 wiki 根目录可访问。
+2. 检查必要目录存在；目录清单见 [目录与 Frontmatter](references/structure-frontmatter.md)。
+3. 若 `_meta/hot.md` 不存在，运行 `wiki.sh cache`。
+4. 读取 `SCHEMA.md`。
+5. 向用户报告知识页数量、收件箱数量、待审数量，并提示可运行“健康检查”。
 
-**置信度规则**：
-- 🟢 **high**: 2+ 来源、5+ 出站链接、50+ 行正文
-- 🟡 **medium**: 1 来源、2+ 出站链接、10+ 行正文
-- 🟠 **low**: 0 来源或 <10 行正文
-- 🔴 **quarantine**: 0 来源 + wip 或 <3 行正文（隔离，需人工审核）
+## Maintenance Boundaries
 
-**零幻觉**：加工时每个声明必须有来源。引用 low 页面需标注"待验证"。禁止引用 quarantine 页面。
+已验证的测试覆盖 init、ingest-draft、compile-source、candidate-from-draft、merge-manual、review-stale、search、graph、moc、P-index、confidence、fix、maintain、contradiction、convert、packaging metadata。当前 Windows 会话无 `sh`，`smoke_wiki_sh.py` 只验证到 `SMOKE_SKIP`；仍需在真实 Minis/POSIX 和真实 Obsidian vault 中验证 `wiki.sh`。
 
-### 矛盾检测
+`fix_health.py` 当前是保守修复器：补目录和 frontmatter，断链只报告，不自动改写。
 
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/detect_contradictions.py
-```
+## Backlog
 
-扫描 frontmatter 中的 `contradictions` 字段 + 数值声明概览。报告保存到 `_meta/contradiction-report.md`。
+暂不在本轮实现：
 
-加工新内容时，注意与已有页面的数值/观点对比。发现矛盾时：
-1. 在相关页面使用 `> [!warning] 矛盾待审` callout 标注
-2. frontmatter 加 `contradictions: [page-name]`
-3. 较新的来源通常更可靠，但需人工确认
-
-### 修复约定
-
-- **断链** → 创建占位页面，frontmatter 含 `tags: [wip]`，正文为"待补充"
-- **格式问题** → 补充 frontmatter 缺失字段（title/created/updated/type/tags）
-- **超大页面** → 拆分为 `{name}-part-1`、`{name}-part-2` 子页面，原页面保留为索引页
-- **过时内容** → 移至 `_archive/`，从 index.md 移除
-- 修复后追加 log.md
-
----
-
-## 工作流 4：查询 (Query)
-
-### BM25 搜索（推荐）
-
-```bash
-python3 /var/minis/skills/wiki-kb/scripts/search_wiki.py "查询词"
-python3 /var/minis/skills/wiki-kb/scripts/search_wiki.py "查询词" --limit 20
-```
-
-BM25 全文检索，按相关性排序，适用于 1000+ 页面的大型知识库。
-
-### 传统搜索
-
-1. 用 `grep -rl "关键词" entities/ concepts/ comparisons/` 搜索相关页面
-2. 读取匹配页面，整合内容生成回答
-3. 回答中用 `[[wikilink]]` 引用来源页面
-4. 有价值的查询**回填到 wiki**：保存到 `synthesis/页面名.md`（type: synthesis），让探索也产生复利
-
----
-
-## 页面模板
-
-### Entity（实体）
-
-```markdown
----
-title: 标题
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
-type: entity
-tags: [标签]
-sources: [raw/articles/来源.md]
-confidence: medium
----
-
-# 标题
-
-概述（1-2 句话说明它是什么）。
-
-## 关键特征
-- 要点
-
-## 分类 / 类型
-- [[相关实体]] - 简述
-
-## 相关概念
-- [[相关概念]]
-```
-
-### Concept（概念）
-
-```markdown
----
-title: 标题
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
-type: concept
-tags: [标签]
-sources: [raw/articles/来源.md]
-confidence: medium
----
-
-# 标题
-
-定义（核心概念是什么，为什么重要）。
-
-## 核心要点
-### 1. 要点标题
-内容。
-
-### 2. 要点标题
-内容。
-
-## 实践应用
-- 具体操作或案例
-
-## 相关概念
-- [[相关概念]]
-```
-
-### Comparison（对比）
-
-```markdown
----
-title: A vs B
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
-type: comparison
-tags: [标签]
-sources: [来源列表]
-confidence: medium
----
-
-# A vs B
-
-## 对比维度
-
-| 维度 | A | B |
-|------|---|---|
-| 特征1 | ... | ... |
-
-## 各自优劣
-### A
-**优势：** ...
-**劣势：** ...
-
-## 结论
-综合分析。
-
-## 相关概念
-- [[相关概念]]
-```
-
-
-### Synthesis（合成页）
-
-```markdown
----
-title: 问题标题
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
-type: synthesis
-tags: [synthesis]
-sources: []
----
-
-# 问题标题
-
-## 回答
-
-综合多个知识页的回答，引用 [[wikilink]]。
-
-## 引用来源
-- [[相关页面1]]
-- [[相关页面2]]
-```
-
----
-
-## 规则速查
-
-| 规则 | 说明 |
-|------|------|
-| 文件名 | 页面：小写连字符无空格；raw：保留原标题 |
-| Frontmatter | 每页必须，含 title/created/updated/type/tags |
-| 出站链接 | 每页至少 2 个 `[[wikilink]]` |
-| 页面大小 | 超过 200 行 → 拆分为 `{name}-part-N` |
-| index.md | 新页面必须添加到对应分类 |
-| log.md | 每次操作必须追加记录 |
-| 标签 | 必须在 SCHEMA.md 标签分类中 |
-| raw/ | 不可变，加工后不改不删 |
-| 占位页 | `tags: [wip]`，正文"待补充"，后续填充 |
-| 链接解析 | `[[]]` 跨目录解析，raw/ 中的文章可直接引用 |
+- 真实 Minis/POSIX 环境 smoke test。
+- vault 初始化/迁移助手。
+- 更强的语义抽取和自动合并建议。
+- 发布打包元数据和安装体验。
