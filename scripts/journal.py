@@ -145,7 +145,7 @@ def extract_insights(root: Path, days: int = 7) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="日记管理器")
-    parser.add_argument("--wiki-root", help="wiki 根目录路径")
+    parser.add_argument("--root", "--wiki-root", dest="wiki_root", help="wiki 根目录路径")
     parser.add_argument("--date", help="目标日期（YYYY-MM-DD），默认今天")
     parser.add_argument("--list", action="store_true", help="列出最近 10 篇日记")
     parser.add_argument("--extract", action="store_true", help="从最近 7 天日记提炼知识建议")

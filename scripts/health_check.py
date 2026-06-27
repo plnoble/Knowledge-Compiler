@@ -33,7 +33,7 @@ from wiki_dirs import (
 # 常量
 # ──────────────────────────────────────────────
 PAGE_DIRS      = ALL_PAGE_DIRS
-RAW_DIRS       = list(RAW.values())
+RAW_DIRS       = list(dict.fromkeys(RAW.values()))
 REQUIRED_FIELDS = ["title", "created", "updated", "type", "tags"]
 MAX_LINES      = 200
 MIN_OUTLINKS   = 2

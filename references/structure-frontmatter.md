@@ -58,7 +58,7 @@ title: 页面标题
 created: 2026-06-27
 updated: 2026-06-27
 type: entity | concept | comparison | synthesis | query | skill | candidate | question | source | source-coverage | journal
-status: review | approved | suggested | active | paused | archived | stale
+status: pending | researching | review | approved | rejected | suggested | active | paused | archived | stale
 tags: []
 sources: []
 confidence: low | medium | high | quarantine

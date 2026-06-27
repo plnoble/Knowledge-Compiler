@@ -232,8 +232,8 @@ case "$1" in
     run_py review_stale.py "$@"
     ;;
   all)
-    echo "=== [1/8] review queue ==="
-    run_py review_queue.py
+    echo "=== [1/8] review queue + skills ==="
+    run_py review_queue.py --skill-review
     echo "=== [2/8] health report ==="
     run_py health_check.py --save
     echo "=== [3/8] maintenance ==="

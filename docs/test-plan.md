@@ -91,7 +91,7 @@ python scripts/candidate_from_draft.py "$vault\0 - Inbox\待审\grid.semantic.md
 ## Skill 草稿测试
 
 ```powershell
-python scripts/distill_skill.py "1 - Resources（资源）/概念/资产配置.md" --wiki-root $vault --name asset-allocation
+python scripts/distill_skill.py "1 - Resources（资源）/概念/资产配置.md" --root $vault --name asset-allocation
 ```
 
 检查：

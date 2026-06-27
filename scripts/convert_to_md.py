@@ -99,9 +99,9 @@ title: {title}
 created: {today()}
 updated: {today()}
 type: source
-status: 收件箱
+status: pending
 source_kind: {source_kind}
-tags: [收件箱]
+tags: [inbox]
 sources:
   - {source}
 ---

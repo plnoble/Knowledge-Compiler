@@ -6,13 +6,13 @@ deep_research.py — Deep Research 联网研究助手 v3
   1. 接收研究主题（由用户或 Minis AI 提供）
   2. 接收 AI 联网搜索结果（通过 --result-file 或 stdin）
   3. 与知识库现有内容做差异分析（BM25 搜索）
-  4. 生成结构化研究报告，写入 0 - Inbox/待处理/
-  5. 打印后续加工建议
+  4. 生成结构化研究报告，写入 0 - Inbox/待审/
+  5. 打印后续审阅建议
 
 注意：联网搜索本身由 Minis AI 完成，本脚本负责：
   - 初始化研究任务（生成研究议程）
   - 接收搜索结果并整合
-  - 写入 Inbox + 日志
+  - 写入 Inbox 待审 + 日志
 
 用法：
   # 模式1：初始化研究任务（打印议程，Minis AI 去搜索）
@@ -32,6 +32,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
+from wiki_common import append_log_top
 from wiki_dirs import get_wiki_root, DIRS, RAW, META_FILES
 
 
@@ -56,14 +57,6 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
                     k, _, v = line.partition(":")
                     meta[k.strip()] = v.strip()
     return meta, body
-
-
-def append_log(wiki_root: Path, entry: str) -> None:
-    log_path = wiki_root / "log.md"
-    today = date.today().isoformat()
-    block = f"\n## [{today}] {entry}\n"
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(block)
 
 
 # ──────────────────────────────────────────────
@@ -171,9 +164,10 @@ title: Research: {query}
 created: {today}
 updated: {today}
 type: research
-status: 收件箱
+status: review
+workflow: deep-research
 source_kind: other
-tags: [research, 收件箱]
+tags: [research, review]
 sources: []
 research_query: {query}
 ---
@@ -208,10 +202,10 @@ research_query: {query}
 - 建议更新页面：{"、".join(f"[[{Path(rel).stem}]]" for rel, _ in related[:3]) if related else "（暂无）"}
 """
 
-    # 写入 Inbox/待处理/
-    inbox_dir = wiki_root / RAW["收件箱"]
-    inbox_dir.mkdir(parents=True, exist_ok=True)
-    output_path = inbox_dir / filename
+    # 搜索结果整合完成后直接进入待审队列，避免研究报告停留在待处理而被 review_queue 跳过。
+    review_dir = wiki_root / RAW["待审"]
+    review_dir.mkdir(parents=True, exist_ok=True)
+    output_path = review_dir / filename
     output_path.write_text(report, encoding="utf-8")
 
     return output_path
@@ -224,7 +218,7 @@ research_query: {query}
 def main():
     parser = argparse.ArgumentParser(description="Deep Research 联网研究助手")
     parser.add_argument("query", help="研究主题")
-    parser.add_argument("--wiki-root", help="wiki 根目录路径（默认自动检测）")
+    parser.add_argument("--root", "--wiki-root", dest="wiki_root", help="wiki 根目录路径（默认自动检测）")
     parser.add_argument("--result-file", help="包含搜索结果的 Markdown 文件路径")
     parser.add_argument("--from-stdin", action="store_true", help="从 stdin 读取搜索结果")
     parser.add_argument("--agenda-only", action="store_true", help="仅打印研究议程，不写入文件")
@@ -283,12 +277,12 @@ research_query: {args.query}
     rel_path = output_path.relative_to(wiki_root)
 
     print(f"\n✅ 研究报告已写入: {rel_path}")
-    print(f"\n📝 下一步（加工）：")
-    print(f"   告诉 Minis：「加工 {rel_path} 这篇文章」")
-    print(f"   AI 会提取实体和概念，生成待审稿到 {RAW['待审']}/")
+    print(f"\n📝 下一步（审阅）：")
+    print(f"   研究报告已进入 {RAW['待审']}/，请在 Obsidian 审阅后改为 status: approved 或 rejected。")
+    print("   若需要继续语义编译，可基于此待审稿生成 Resources/Areas/Skills 更新建议。")
 
     # 写日志
-    append_log(wiki_root, f"Deep Research: {args.query} → {rel_path}")
+    append_log_top(wiki_root, "Deep Research", [f"- query: {args.query}", f"- review: `{rel_path}`"])
 
 
 if __name__ == "__main__":

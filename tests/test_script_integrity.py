@@ -1,4 +1,5 @@
 import json
+import importlib
 import os
 import re
 import subprocess
@@ -353,7 +354,11 @@ sources: [0 - Inbox/待处理/source.md]
             proc = self.run_script(SCRIPTS / "convert_to_md.py", source, "--root", vault)
             combined = (proc.stdout + proc.stderr).strip()
             self.assertEqual(proc.returncode, 0, combined)
-            self.assertTrue((vault / INBOX_PENDING / "sample.md").exists())
+            converted = vault / INBOX_PENDING / "sample.md"
+            self.assertTrue(converted.exists())
+            converted_text = converted.read_text(encoding="utf-8")
+            self.assertIn("status: pending", converted_text)
+            self.assertNotIn("status: 收件箱", converted_text)
 
     def test_ingest_draft_creates_review_file_with_source_kind(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
@@ -501,6 +506,88 @@ sources: [0 - Inbox/待处理/source.md]
             self.assertIn("外部补充", text)
             self.assertIn("仍需研究", text)
             self.assertEqual([], list((vault / RESOURCE_QUERY).glob("*.md")))
+
+    def test_deep_research_result_enters_review_queue(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            vault = Path(tmp) / "vault"
+            self.assertEqual(self.run_script(SCRIPTS / "init_vault.py", "--root", vault).returncode, 0)
+            result_file = Path(tmp) / "result.md"
+            result_file.write_text("Research finding about Alpha and Beta.\n", encoding="utf-8")
+
+            proc = self.run_script(
+                SCRIPTS / "deep_research.py",
+                "Alpha Research",
+                "--wiki-root",
+                vault,
+                "--result-file",
+                result_file,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            reviews = sorted((vault / INBOX_REVIEW).glob("research-alpha-research-*.md"))
+            self.assertEqual(1, len(reviews))
+            text = reviews[0].read_text(encoding="utf-8")
+            self.assertIn("status: review", text)
+            self.assertIn("workflow: deep-research", text)
+            self.assertNotIn("status: 收件箱", text)
+            self.assertEqual([], list((vault / INBOX_PENDING).glob("research-alpha-research-*.md")))
+
+    def test_auto_research_includes_area_manuals_in_gap_scan(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            vault = Path(tmp) / "vault"
+            self.assertEqual(self.run_script(SCRIPTS / "init_vault.py", "--root", vault).returncode, 0)
+            area_page = vault / AREA_INVESTMENT / "area-gap.md"
+            area_page.write_text(
+                """---
+title: Area Gap
+created: 2026-06-27
+updated: 2026-06-27
+type: area
+tags: [wip]
+sources: []
+confidence: medium
+---
+
+# Area Gap
+
+Needs research.
+""",
+                encoding="utf-8",
+            )
+
+            proc = self.run_script(SCRIPTS / "auto_research.py", "--root", vault)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            agenda = (vault / "_meta" / "research-agenda.md").read_text(encoding="utf-8")
+            self.assertIn("area-gap", agenda)
+
+    def test_review_queue_approves_skill_review_without_path_string_heuristic(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            vault = Path(tmp) / "vault"
+            self.assertEqual(self.run_script(SCRIPTS / "init_vault.py", "--root", vault).returncode, 0)
+            draft = vault / SKILL_REVIEW / "alpha-skill.md"
+            draft.write_text(
+                """---
+title: Alpha Skill
+created: 2026-06-27
+updated: 2026-06-27
+type: skill
+tags: [skill]
+sources: []
+confidence: medium
+status: approved
+---
+
+# Alpha Skill
+
+Approved skill draft.
+""",
+                encoding="utf-8",
+            )
+
+            proc = self.run_script(SCRIPTS / "review_queue.py", "--wiki-root", vault, "--skill-review")
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertTrue((vault / SKILLS / "alpha-skill.md").exists())
+            self.assertFalse(draft.exists())
+            self.assertTrue((vault / ARCHIVE_SOURCES / "_review_alpha-skill.md").exists())
 
     def test_merge_manual_targets_area_and_backs_up_existing_manual(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
@@ -678,6 +765,38 @@ review_after: 2026-04-01
             self.assertEqual(proc.returncode, 0, combined)
             self.assertIn("N/A", combined)
             self.assertNotIn("健康度：100%", combined)
+
+    def test_audit_fixes_are_locked_by_static_expectations(self):
+        wiki_sh = (SCRIPTS / "wiki.sh").read_text(encoding="utf-8")
+        self.assertIn("run_py review_queue.py --skill-review", wiki_sh)
+
+        review_queue = (SCRIPTS / "review_queue.py").read_text(encoding="utf-8")
+        self.assertNotIn('page_type == "skill" and "待审" in str(review_file)', review_queue)
+
+        for script_name in ["candidate_card.py", "deep_research.py", "distill_skill.py", "review_queue.py"]:
+            text = (SCRIPTS / script_name).read_text(encoding="utf-8")
+            self.assertNotIn("def append_log(", text, script_name)
+            self.assertIn("append_log_top", text, script_name)
+
+        self.assertNotIn("status: 收件箱", (SCRIPTS / "deep_research.py").read_text(encoding="utf-8"))
+        self.assertNotIn("status: 收件箱", (SCRIPTS / "convert_to_md.py").read_text(encoding="utf-8"))
+
+        sys.path.insert(0, str(SCRIPTS))
+        health_check = importlib.import_module("health_check")
+        self.assertEqual(len(health_check.RAW_DIRS), len(set(health_check.RAW_DIRS)))
+
+    def test_legacy_wiki_root_scripts_accept_root_alias(self):
+        for script_name in [
+            "build_hot_cache.py",
+            "candidate_card.py",
+            "deep_research.py",
+            "distill_skill.py",
+            "journal.py",
+            "review_queue.py",
+        ]:
+            text = (SCRIPTS / script_name).read_text(encoding="utf-8")
+            self.assertIn('"--root", "--wiki-root"', text, script_name)
+            self.assertIn('dest="wiki_root"', text, script_name)
 
     def test_verify_static_script_passes(self):
         proc = self.run_script(SCRIPTS / "verify_static.py")

@@ -12,7 +12,7 @@ build_hot_cache.py — Knowledge Compiler 热缓存生成器
 格式对齐 claude-obsidian WIKI.md hot.md 规范。
 
 用法：
-  python3 scripts/build_hot_cache.py [--wiki-root /path]
+  python3 scripts/build_hot_cache.py [--root /path]
 """
 
 import os
@@ -255,7 +255,7 @@ def build_hot_cache(root: Path) -> str:
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="生成热缓存 _meta/hot.md")
-    parser.add_argument("--wiki-root", help="wiki 根目录路径")
+    parser.add_argument("--root", "--wiki-root", dest="wiki_root", help="wiki 根目录路径")
     parser.add_argument("--print", action="store_true", help="打印到终端而不写文件")
     args = parser.parse_args()
 

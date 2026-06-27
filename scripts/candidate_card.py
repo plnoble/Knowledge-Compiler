@@ -17,6 +17,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
+from wiki_common import append_log_top
 from wiki_dirs import DIRS, get_wiki_root, resolve_vault_path
 
 
@@ -41,14 +42,6 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
                     k, _, v = line.partition(":")
                     meta[k.strip()] = v.strip()
     return meta, body
-
-
-def append_log(wiki_root: Path, entry: str) -> None:
-    log_path = wiki_root / "log.md"
-    today = date.today().isoformat()
-    block = f"\n## [{today}] {entry}\n"
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(block)
 
 
 def update_index_candidates(wiki_root: Path, page_name: str, summary: str) -> None:
@@ -186,7 +179,7 @@ sources: {sources_yaml}
 def main():
     parser = argparse.ArgumentParser(description="生成候选项目卡")
     parser.add_argument("sources", nargs="*", help="来源知识页路径（相对于 wiki 根目录）")
-    parser.add_argument("--wiki-root", help="wiki 根目录路径（默认自动检测）")
+    parser.add_argument("--root", "--wiki-root", dest="wiki_root", help="wiki 根目录路径（默认自动检测）")
     parser.add_argument("--name", help="项目名称（默认从来源页推断）")
     parser.add_argument("--idea", help="直接提供想法文字，不需要来源页")
     args = parser.parse_args()
@@ -264,7 +257,7 @@ def main():
     if sources_str:
         log_entry += f"，来源: {sources_str}"
     log_entry += "）"
-    append_log(wiki_root, log_entry)
+    append_log_top(wiki_root, "生成候选卡", [f"- {log_entry}"])
 
 
 if __name__ == "__main__":

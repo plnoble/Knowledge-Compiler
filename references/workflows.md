@@ -104,7 +104,7 @@ wiki.sh candidate "1 - Resources（资源）/概念/xxx.md" --root <vault> --nam
 命令：
 
 ```bash
-wiki.sh skill "1 - Resources（资源）/概念/资产配置.md" --wiki-root <vault>
+wiki.sh skill "1 - Resources（资源）/概念/资产配置.md" --root <vault>
 ```
 
 质量标准：
@@ -132,9 +132,9 @@ Deep Research 是缺口触发，不是每篇资料自动触发。
 日记在 `7 - Daily（日记）/`，默认不主动处理。只有用户明确要求“从日记提炼知识”时，才读取日记并走 WF1。
 
 ```bash
-wiki.sh journal --wiki-root <vault>
-wiki.sh journal --list --wiki-root <vault>
-wiki.sh journal --extract --wiki-root <vault>
+wiki.sh journal --root <vault>
+wiki.sh journal --list --root <vault>
+wiki.sh journal --extract --root <vault>
 ```
 
 ## WF9 问答沉淀

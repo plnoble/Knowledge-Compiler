@@ -176,7 +176,7 @@ wiki.sh compile-source "0 - Inbox/待处理/xxx.md" --root <vault>
 ```bash
 wiki.sh merge-manual "0 - Inbox/待审/xxx.semantic.md" --root <vault>
 wiki.sh candidate-from-draft "0 - Inbox/待审/xxx.semantic.md" --root <vault> --index 1
-wiki.sh skill "1 - Resources（资源）/概念/xxx.md" --wiki-root <vault>
+wiki.sh skill "1 - Resources（资源）/概念/xxx.md" --root <vault>
 wiki.sh answer-draft --root <vault> --question "..." --answer "..."
 wiki.sh review --root <vault>
 ```

@@ -9,7 +9,7 @@
 Codex 技能目录建议使用新名字：
 
 ```powershell
-git clone https://github.com/plnoble/wiki-kb.git "$env:USERPROFILE\.codex\skills\compile-knowledge"
+git clone https://github.com/plnoble/Knowledge-Compiler.git "$env:USERPROFILE\.codex\skills\compile-knowledge"
 ```
 
 日常可以直接说：
@@ -134,7 +134,7 @@ wiki.sh candidate-from-draft "0 - Inbox/待审/xxx.semantic.md" --root <vault> -
 从稳定资源蒸馏 Skill 草稿：
 
 ```bash
-wiki.sh skill "1 - Resources（资源）/概念/xxx.md" --wiki-root <vault>
+wiki.sh skill "1 - Resources（资源）/概念/xxx.md" --root <vault>
 ```
 
 项目候选进入：

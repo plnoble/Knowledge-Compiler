@@ -7,7 +7,7 @@ distill_skill.py — Skill 蒸馏器 v3
 
 用法：
   python3 scripts/distill_skill.py "1 - Resources（资源）/概念/资产配置.md"
-  python3 scripts/distill_skill.py --wiki-root /path/to/wiki "1 - Resources（资源）/概念/etf.md"
+  python3 scripts/distill_skill.py --root /path/to/wiki "1 - Resources（资源）/概念/etf.md"
   python3 scripts/distill_skill.py --list-candidates   # 列出可蒸馏的高质量页面
 """
 
@@ -18,6 +18,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
+from wiki_common import append_log_top
 from wiki_dirs import DIRS, get_wiki_root, resolve_vault_path
 
 
@@ -42,23 +43,6 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
                     k, _, v = line.partition(":")
                     meta[k.strip()] = v.strip()
     return meta, body
-
-
-def append_log(wiki_root: Path, entry: str) -> None:
-    """append log entry to log.md（新条目前插到顶部）。"""
-    log_path = wiki_root / "log.md"
-    today = date.today().isoformat()
-    block = f"## [{today}] {entry}\n"
-    if log_path.exists():
-        existing = log_path.read_text(encoding="utf-8")
-        first_h2 = existing.find("\n## [")
-        if first_h2 >= 0:
-            content = existing[:first_h2 + 1] + block + "\n" + existing[first_h2 + 1:]
-        else:
-            content = existing.rstrip() + "\n\n" + block
-    else:
-        content = f"# 操作日志\n\n{block}"
-    log_path.write_text(content, encoding="utf-8")
 
 
 def infer_domain(tags: str, page_type: str, content: str) -> str:
@@ -228,7 +212,7 @@ def list_skill_candidates(wiki_root: Path) -> None:
 def main():
     parser = argparse.ArgumentParser(description="从知识页蒸馏 Skill 草稿")
     parser.add_argument("sources", nargs="*", help="来源知识页路径（相对于 wiki 根目录）")
-    parser.add_argument("--wiki-root", help="wiki 根目录路径（默认自动检测）")
+    parser.add_argument("--root", "--wiki-root", dest="wiki_root", help="wiki 根目录路径（默认自动检测）")
     parser.add_argument("--name", help="Skill 名称（默认从来源文件名推断）")
     parser.add_argument("--list-candidates", action="store_true", help="列出可蒸馏的高质量页面")
     args = parser.parse_args()
@@ -306,7 +290,11 @@ def main():
 
     # 写日志
     sources_list = ", ".join(f"[[{p.stem}]]" for p, _, _ in source_data)
-    append_log(wiki_root, f"蒸馏 Skill 草稿: [[{DIRS['技能待审']}/{skill_filename}]]（来源: {sources_list}）")
+    append_log_top(
+        wiki_root,
+        "蒸馏 Skill 草稿",
+        [f"- draft: [[{DIRS['技能待审']}/{skill_filename}]]", f"- sources: {sources_list}"],
+    )
 
 
 if __name__ == "__main__":

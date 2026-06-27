@@ -7,7 +7,7 @@ review_queue.py — Knowledge Compiler 审阅队列处理器
   - status: rejected → 读取退回原因，重新生成待审稿（status 重置为 review）
 
 用法：
-  python3 scripts/review_queue.py [--wiki-root /path/to/wiki]
+  python3 scripts/review_queue.py [--root /path/to/wiki]
   python3 scripts/review_queue.py --dry-run   # 仅显示，不执行
 """
 
@@ -21,6 +21,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
+from wiki_common import append_log_top
 from wiki_dirs import DIRS, RAW, get_wiki_root, resolve_vault_path
 
 # ──────────────────────────────────────────────
@@ -66,24 +67,6 @@ def get_rejection_reason(body: str) -> str:
 def strip_rejection_block(body: str) -> str:
     """移除正文底部的退回原因块。"""
     return re.sub(r"\n## 退回原因.*", "", body, flags=re.DOTALL).rstrip()
-
-
-def append_log(wiki_root: Path, entry: str) -> None:
-    """追加一条记录到 log.md（新条目插入顶部）。"""
-    log_path = wiki_root / "log.md"
-    today = date.today().isoformat()
-    block = f"## [{today}] {entry}\n"
-    if log_path.exists():
-        existing = log_path.read_text(encoding="utf-8")
-        # 找到第一个 ## 之前插入（最新在最前）
-        first_h2 = existing.find("\n## [")
-        if first_h2 >= 0:
-            content = existing[:first_h2 + 1] + block + "\n" + existing[first_h2 + 1:]
-        else:
-            content = existing.rstrip() + "\n\n" + block
-    else:
-        content = f"# 操作日志\n\n{block}"
-    log_path.write_text(content, encoding="utf-8")
 
 
 def update_index(wiki_root: Path, page_type: str, page_name: str, summary: str) -> None:
@@ -168,10 +151,6 @@ def process_approved(review_file: Path, wiki_root: Path, dry_run: bool) -> str:
     }
     target_dir = wiki_root / type_dir_map.get(page_type, DIRS["概念"])
 
-    # 如果是 skill，从 Resources/技能/待审/ 移到 Resources/技能/
-    if page_type == "skill" and "待审" in str(review_file):
-        target_dir = wiki_root / DIRS["技能"]
-
     target_file = target_dir / review_file.name
     processed_dir = wiki_root / RAW["已归档"]
 
@@ -252,7 +231,7 @@ def process_rejected(review_file: Path, wiki_root: Path, dry_run: bool) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="处理审阅队列")
-    parser.add_argument("--wiki-root", help="wiki 根目录路径（默认自动检测）")
+    parser.add_argument("--root", "--wiki-root", dest="wiki_root", help="wiki 根目录路径（默认自动检测）")
     parser.add_argument("--dry-run", action="store_true", help="仅显示，不执行")
     parser.add_argument("--skill-review", action="store_true", help=f"同时扫描 {DIRS['技能待审']}/")
     args = parser.parse_args()
@@ -314,10 +293,11 @@ def main():
 
     # 写日志
     if log_entries and not args.dry_run:
-        summary = f"审阅队列处理：通过 {approved_count} 篇，退回重生成 {rejected_count} 篇"
-        for entry in log_entries:
-            summary += f"\n- {entry}"
-        append_log(wiki_root, summary)
+        append_log_top(
+            wiki_root,
+            f"审阅队列处理：通过 {approved_count} 篇，退回重生成 {rejected_count} 篇",
+            [f"- {entry}" for entry in log_entries],
+        )
 
     print(f"\n{'[DRY RUN] ' if args.dry_run else ''}完成：")
     print(f"  ✅ 通过: {approved_count}")

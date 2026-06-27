@@ -23,12 +23,31 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import get_wiki_root, ALL_PAGE_DIRS, META_FILES
+from wiki_dirs import (
+    AREA_AI_AUTOMATION,
+    AREA_HONG_KONG,
+    AREA_INVESTMENT,
+    AREA_KB_OPS,
+    AREA_UNCLASSIFIED_SYNTHESIS,
+    get_wiki_root,
+    ALL_PAGE_DIRS,
+    META_FILES,
+)
 from wiki_dirs import DIRS
 
 today = datetime.now().strftime("%Y-%m-%d")
 
-PAGE_DIRS = [DIRS["实体"], DIRS["概念"], DIRS["对比"], DIRS["查询"]]
+PAGE_DIRS = [
+    DIRS["实体"],
+    DIRS["概念"],
+    DIRS["对比"],
+    DIRS["查询"],
+    AREA_INVESTMENT,
+    AREA_AI_AUTOMATION,
+    AREA_HONG_KONG,
+    AREA_KB_OPS,
+    AREA_UNCLASSIFIED_SYNTHESIS,
+]
 
 
 def strip_fm(c: str) -> str:

@@ -24,7 +24,7 @@ approved before they update Resources, Areas, Projects, or Skills.
 Clone this repository into the Codex skills directory under the new skill name:
 
 ```powershell
-git clone https://github.com/plnoble/wiki-kb.git "$env:USERPROFILE\.codex\skills\compile-knowledge"
+git clone https://github.com/plnoble/Knowledge-Compiler.git "$env:USERPROFILE\.codex\skills\compile-knowledge"
 ```
 
 Then invoke it naturally:
@@ -69,7 +69,7 @@ sh scripts/wiki.sh compile-source "0 - Inbox/待处理/source.md" --root <vault>
 sh scripts/wiki.sh review --root <vault> --dry-run
 sh scripts/wiki.sh merge-manual "0 - Inbox/待审/source.semantic.md" --root <vault>
 sh scripts/wiki.sh candidate-from-draft "0 - Inbox/待审/source.semantic.md" --root <vault>
-sh scripts/wiki.sh skill "1 - Resources（资源）/概念/topic.md" --wiki-root <vault>
+sh scripts/wiki.sh skill "1 - Resources（资源）/概念/topic.md" --root <vault>
 sh scripts/wiki.sh answer-draft --root <vault> --question "..." --answer "..."
 sh scripts/wiki.sh health --root <vault>
 ```
