@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import DIRS, get_wiki_root
+from wiki_dirs import DIRS, get_wiki_root, resolve_vault_path
 from wiki_common import parse_frontmatter, read_text, slugify, today, write_text
 
 
@@ -76,6 +76,16 @@ sources: [{source}]
 2. 现有知识是否足够支撑第一版？
 3. 验证成本是否匹配个人优先级？
 
+## 项目评估
+
+- 解决什么问题：{why}
+- 个人匹配度：{fit}
+- 证据数量：{evidence}
+- 验证成本：{cost}
+- 潜在价值：待评估
+- 下一步最小验证动作：用 30 分钟写出最小检查清单或手动流程。
+- 是否已有类似候选：待检索
+
 ## 状态更新
 
 - {today()}：从语义待审稿提升为 suggested 候选卡。
@@ -111,9 +121,7 @@ def main() -> None:
     args = parser.parse_args()
 
     root = get_wiki_root(override=args.root)
-    draft = Path(args.draft)
-    if not draft.is_absolute():
-        draft = root / draft
+    draft = resolve_vault_path(root, args.draft)
     try:
         output = promote(root, draft, args.index)
     except (IndexError, FileNotFoundError) as exc:

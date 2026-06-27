@@ -1,8 +1,8 @@
 interface:
-  display_name: "wiki-kb"
-  short_description: "Personal wiki workflow for ingesting, reviewing, linking, and maintaining knowledge."
+  display_name: "Knowledge Compiler / 知识编译器"
+  short_description: "Review-gated 0-7 personal knowledge compiler for Inbox, Resources, Areas, Projects, Skills, and answers."
   brand_color: "#2563EB"
-  default_prompt: "Use $wiki-kb to initialize a vault, process new raw notes into review drafts, and maintain the question index."
+  default_prompt: "Use $compile-knowledge to initialize or migrate a vault, compile Inbox material into review drafts with Source Coverage Maps and Impact Review, roll Resources into Areas, identify Projects, distill Skills, and save valuable answers as review drafts."
 
 policy:
   allow_implicit_invocation: true

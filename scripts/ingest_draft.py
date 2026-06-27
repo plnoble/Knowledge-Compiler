@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a review draft from a raw source and de-duplicate by content hash."""
+"""Create a review draft from a source and de-duplicate by content hash."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import META_FILES, RAW, get_wiki_root
-from wiki_common import append_log_top, slugify, today, write_text
+from wiki_dirs import META_FILES, RAW, get_wiki_root, rel_to_root, resolve_vault_path
+from wiki_common import append_log_top, detect_source_kind, slugify, today, write_text
 
 
 def read_manifest(path: Path) -> dict:
@@ -34,20 +34,6 @@ def write_manifest(path: Path, data: dict) -> None:
     write_text(path, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
 
 
-def resolve_source(root: Path, value: str) -> Path:
-    path = Path(value)
-    if not path.is_absolute():
-        path = root / path
-    return path
-
-
-def rel_to_root(root: Path, path: Path) -> str:
-    try:
-        return str(path.relative_to(root)).replace("\\", "/")
-    except ValueError:
-        return str(path)
-
-
 def unique_review_path(review_dir: Path, stem: str, force: bool) -> Path:
     candidate = review_dir / f"{stem}.md"
     if force or not candidate.exists():
@@ -60,15 +46,16 @@ def unique_review_path(review_dir: Path, stem: str, force: bool) -> Path:
         index += 1
 
 
-def render_draft(title: str, source_rel: str, hash_key: str, source_text: str) -> str:
+def render_draft(title: str, source_rel: str, hash_key: str, source_text: str, source_kind: str) -> str:
     return f"""---
 title: {title}
 created: {today()}
 updated: {today()}
 type: source
 status: review
+source_kind: {source_kind}
 tags: [待审]
-sources: []
+sources: [{source_rel}]
 confidence: low
 inbox_source: {source_rel}
 source_hash: {hash_key}
@@ -121,7 +108,8 @@ def ingest(root: Path, source: Path, title: str | None, force: bool) -> tuple[st
     review_path = unique_review_path(review_dir, stem, force)
 
     source_text = content_bytes.decode("utf-8", errors="replace")
-    write_text(review_path, render_draft(page_title, source_rel, hash_key, source_text))
+    source_kind = detect_source_kind(source, source_text)
+    write_text(review_path, render_draft(page_title, source_rel, hash_key, source_text, source_kind))
 
     review_rel = rel_to_root(root, review_path)
     manifest["sources"][source_rel] = {
@@ -130,6 +118,7 @@ def ingest(root: Path, source: Path, title: str | None, force: bool) -> tuple[st
         "review_file": review_rel,
         "ingested_at": today(),
         "title": page_title,
+        "source_kind": source_kind,
     }
     manifest["hashes"][hash_key] = source_rel
     write_manifest(manifest_path, manifest)
@@ -140,7 +129,7 @@ def ingest(root: Path, source: Path, title: str | None, force: bool) -> tuple[st
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create a wiki-kb review draft from a raw source")
+    parser = argparse.ArgumentParser(description="Create a compile-knowledge review draft from a source")
     parser.add_argument("source", help="Source file path, absolute or relative to wiki root")
     parser.add_argument("--root", "--wiki-root", help="Vault root")
     parser.add_argument("--title", help="Draft title override")
@@ -149,7 +138,7 @@ def main() -> None:
 
     root = get_wiki_root(override=args.root)
     try:
-        ingest(root, resolve_source(root, args.source), args.title, args.force)
+        ingest(root, resolve_vault_path(root, args.source), args.title, args.force)
     except FileNotFoundError as exc:
         print(f"ERROR source_not_found {exc}", file=sys.stderr)
         sys.exit(2)

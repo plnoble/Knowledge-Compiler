@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from wiki_dirs import DIRS, get_wiki_root
 from wiki_common import markdown_files, page_title, parse_frontmatter, read_text, today, write_text
 
-DEFAULT_SOURCE_DIRS = ["概念", "实体"]
+DEFAULT_SOURCE_DIRS = [DIRS["概念"], DIRS["实体"]]
 INVALID_FILENAME_CHARS = '<>:"/\\|?*'
 
 

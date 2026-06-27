@@ -14,7 +14,7 @@ from wiki_dirs import ALL_PAGE_DIRS, get_wiki_root
 from wiki_common import markdown_files, parse_frontmatter, read_text, today, write_text
 
 
-SCAN_DIRS = ALL_PAGE_DIRS + ["合成"]
+SCAN_DIRS = ALL_PAGE_DIRS
 
 
 def parse_date(value: str) -> date | None:
@@ -72,7 +72,7 @@ def render_report(due: list[dict[str, str]]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Report stale wiki pages that need review")
+    parser = argparse.ArgumentParser(description="Report stale Knowledge Compiler pages that need review")
     parser.add_argument("--root", "--wiki-root", help="Vault root")
     args = parser.parse_args()
 

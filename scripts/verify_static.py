@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static verifier for wiki-kb scripts."""
+"""Static verifier for compile-knowledge scripts."""
 
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 
 CLI_SCRIPTS = {
+    "answer_draft.py",
+    "audit_legacy_quality.py",
     "auto_research.py",
     "build_graph.py",
     "build_hot_cache.py",
@@ -86,7 +88,7 @@ def check_stale_paths() -> list[str]:
     pattern = re.compile("|".join(STALE_PATTERNS))
     candidates = [ROOT / "SKILL.md", *sorted((ROOT / "references").glob("*.md")), *sorted(SCRIPTS.glob("*.py"))]
     for path in candidates:
-        if path.name in {"wiki_dirs.py", "verify_static.py"}:
+        if path.name in {"wiki_dirs.py", "migrate_para.py", "verify_static.py"}:
             continue
         for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if pattern.search(line):

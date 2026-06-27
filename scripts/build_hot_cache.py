@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build_hot_cache.py — 热缓存生成器 v2
+build_hot_cache.py — Knowledge Compiler 热缓存生成器
 
 生成 _meta/hot.md：
   - ~500 字的「近期上下文」快照，每次会话从这里读起
@@ -135,7 +135,7 @@ def get_active_research(root: Path) -> list[str]:
 
 
 def get_review_queue_count(root: Path) -> int:
-    """统计 raw/待审/ 中的待审文件数。"""
+    """统计 Inbox 待审文件数。"""
     review_dir = root / RAW["待审"]
     if not review_dir.exists():
         return 0
@@ -143,7 +143,7 @@ def get_review_queue_count(root: Path) -> int:
 
 
 def get_inbox_count(root: Path) -> int:
-    """统计 raw/收件箱/ 中的待加工文件数。"""
+    """统计 Inbox 待处理文件数。"""
     inbox_dir = root / RAW["收件箱"]
     if not inbox_dir.exists():
         return 0
@@ -231,9 +231,9 @@ def build_hot_cache(root: Path) -> str:
     lines += ["## ⚡ 待处理提醒"]
     reminders = []
     if inbox_count > 0:
-        reminders.append(f"📥 raw/收件箱/ 有 **{inbox_count}** 篇待加工")
+        reminders.append(f"📥 {RAW['收件箱']}/ 有 **{inbox_count}** 篇待加工")
     if review_count > 0:
-        reminders.append(f"⏳ raw/待审/ 有 **{review_count}** 篇待审阅")
+        reminders.append(f"⏳ {RAW['待审']}/ 有 **{review_count}** 篇待审阅")
     if not reminders:
         reminders.append("✅ 无积压，状态良好")
     for r in reminders:
@@ -243,7 +243,7 @@ def build_hot_cache(root: Path) -> str:
     # 阅读指引（给 Minis 的说明）
     lines += [
         "## 📖 如何使用",
-        "- 加工新文章：告诉 Minis「加工 raw/收件箱/文件名.md」",
+        f"- 加工新文章：告诉 AI「加工 {RAW['收件箱']}/文件名.md」",
         "- 提问：告诉 Minis「[你的问题]」，Minis 先读此缓存再检索知识页",
         "- 审阅：在 Obsidian 改 frontmatter status: approved，再运行 wiki.sh review",
         "",

@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(__file__))
 from wiki_dirs import (
     get_wiki_root, ALL_PAGE_DIRS, CHECK_DIRS as WIKI_CHECK_DIRS,
-    RAW, META_FILES
+    RAW, META_FILES, DIRS
 )
 
 # ──────────────────────────────────────────────
@@ -142,7 +142,7 @@ def check_p_index_coverage(root: Path, page_index: dict) -> tuple[int, int]:
     检查问题索引覆盖率：有多少知识页在问题索引中有对应条目。
     返回 (有覆盖的页面数, 总页面数)。
     """
-    p_index_dir = root / "问题索引"
+    p_index_dir = root / DIRS["问题索引"]
     if not p_index_dir.exists():
         return 0, len(page_index)
 
@@ -215,7 +215,7 @@ def check_skill_activity(root: Path) -> tuple[list, list]:
     Loop 2：统计技能活跃度，标记超过 SKILL_STALE_DAYS 天未更新的 Skill。
     返回 (不活跃列表, 活跃列表)，每项 (文件名, 天数)。
     """
-    skills_dir = root / "技能"
+    skills_dir = root / DIRS["技能"]
     if not skills_dir.is_dir():
         return [], []
 
@@ -270,7 +270,7 @@ def check_review_queue(root: Path) -> tuple[list, list]:
 
 
 def check_skill_coverage(root: Path, page_index: dict) -> tuple[int, int, list]:
-    skills_dir = root / "技能"
+    skills_dir = root / DIRS["技能"]
     if not skills_dir.is_dir():
         return 0, 0, []
     skill_referenced = set()
@@ -290,14 +290,14 @@ def check_skill_coverage(root: Path, page_index: dict) -> tuple[int, int, list]:
             pass
     concept_entity = {
         stem for stem, path in page_index.items()
-        if "概念" in str(path) or "实体" in str(path)
+        if DIRS["概念"] in str(path).replace("\\", "/") or DIRS["实体"] in str(path).replace("\\", "/")
     }
     covered = len(concept_entity & skill_referenced)
     return covered, len(concept_entity), orphan_skills
 
 
 def check_candidates(root: Path) -> tuple[list, list]:
-    candidates_dir = root / "候选"
+    candidates_dir = root / DIRS["候选"]
     if not candidates_dir.is_dir():
         return [], []
     incubating, active = [], []
@@ -437,7 +437,7 @@ def main():
         lines.append(f"- {d}/：{dir_stats.get(d, 0)} 页")
     lines.append("")
     for key in ["收件箱", "待审", "已归档"]:
-        lines.append(f"- raw/{key}/：{raw_stats.get(key, 0)} 条")
+        lines.append(f"- {RAW[key]}/：{raw_stats.get(key, 0)} 条")
     lines.append(f"- **总知识页数：{total_pages}**")
     lines.append("")
 
@@ -456,10 +456,10 @@ def main():
     inbox_icon = "✅" if inbox_count == 0 else ("⚠️" if inbox_count < 5 else "🔴")
     lines += [
         "## 📥 收件箱积压",
-        f"- {inbox_icon} raw/收件箱/：**{inbox_count} 篇**待加工",
+        f"- {inbox_icon} {RAW['收件箱']}/：**{inbox_count} 篇**待加工",
     ]
     if inbox_count > 0:
-        lines.append("  → 告诉 Minis「加工 raw/收件箱/文件名.md」")
+        lines.append(f"  → 告诉 AI「加工 {RAW['收件箱']}/文件名.md」")
     lines.append("")
 
     # 审阅队列
@@ -469,7 +469,7 @@ def main():
     if stale_reviews:
         lines.append(f"- 🔴 积压（>{REVIEW_STALE_DAYS}天）：{len(stale_reviews)} 篇")
         for fname, days in sorted(stale_reviews, key=lambda x: -x[1])[:10]:
-            lines.append(f"  - `raw/待审/{fname}`（{days} 天）")
+            lines.append(f"  - `{RAW['待审']}/{fname}`（{days} 天）")
     if pending_reviews:
         lines.append(f"- 🟡 正常待审：{len(pending_reviews)} 篇")
     if review_total == 0:
@@ -496,17 +496,17 @@ def main():
         p_icon = "✅" if p_pct >= 30 else ("🟡" if p_pct >= 10 else "🔴")
         lines.append(f"- {p_icon} {p_index_covered}/{p_index_total} 知识页有对应问题索引（{p_pct}%）")
         if p_pct < 10:
-            lines.append("  → 加工文章后记得提炼 2-3 个问题，写入 问题索引/ 目录")
+            lines.append(f"  → 加工文章后记得提炼 2-3 个问题，写入 {DIRS['问题索引']}/ 目录")
     lines.append("")
 
     # ── Loop 2：Skill 活跃度 ──
     lines += ["## 🎯 Skill 活跃度（Loop 2）"]
-    lines.append(f"- Skill 总数：{dir_stats.get('技能', 0)} 个")
+    lines.append(f"- Skill 总数：{dir_stats.get(DIRS['技能'], 0)} 个")
     lines.append(f"- 活跃（{SKILL_STALE_DAYS}天内更新）：{len(active_skills)} 个")
     if inactive_skills:
         lines.append(f"- 🔴 不活跃（>{SKILL_STALE_DAYS}天未更新）：{len(inactive_skills)} 个")
         for fname, days in inactive_skills[:5]:
-            lines.append(f"  - `技能/{fname}`（{days} 天）")
+            lines.append(f"  - `{DIRS['技能']}/{fname}`（{days} 天）")
         lines.append("  → 考虑用新知识更新这些 Skill，或标记为已归档")
     if skill_covered > 0:
         skill_pct = skill_covered * 100 // max(1, skill_total)
@@ -532,7 +532,7 @@ def main():
     lines.append(f"- 孵化中：{len(incubating_candidates)} 个 | 进行中：{len(active_candidates)} 个")
     if incubating_candidates:
         for fname, title in incubating_candidates[:10]:
-            lines.append(f"  - [[候选/{fname[:-3]}]] — {title}")
+            lines.append(f"  - [[{DIRS['候选']}/{fname[:-3]}]] — {title}")
     lines.append("")
 
     # 链接状态
@@ -605,7 +605,7 @@ def main():
         "### 建议行动",
     ]
     if total_pages == 0:
-        lines.append("1. ⚪ 知识库暂无知识页；先加工 raw/收件箱/ 中的文章或创建初始页面")
+        lines.append(f"1. ⚪ 知识库暂无知识页；先加工 {RAW['收件箱']}/ 中的文章或创建初始页面")
     if contradictions:
         lines.append(f"1. 🔴 解决 {len(contradictions)} 处矛盾（在相关页面查看 [!矛盾] callout）")
     if len(stale_reviews) > 0:

@@ -1,232 +1,198 @@
-# wiki-kb 操作手册
+# Knowledge Compiler 操作手册
 
-本手册面向日常使用者。`wiki-kb` 的目标不是把所有资料堆进 Obsidian，而是把你主动保存的资料加工成可审阅、可追溯、可合并、可过期复查的个人知识库。
+`compile-knowledge` 的目标不是把资料堆进 Obsidian，而是把 Inbox 资料编译成可审阅、可追溯、可合并、可过期复查的个人知识库。
 
-## 1. 安装与启动
+展示名：Knowledge Compiler / 知识编译器。
 
-### 1.1 作为 Codex 技能安装
+## 安装与调用
 
-把仓库放到 Codex 的技能目录，并保持目录名为 `wiki-kb`：
+Codex 技能目录建议使用新名字：
 
 ```powershell
-git clone https://github.com/plnoble/wiki-kb.git "$env:USERPROFILE\.codex\skills\wiki-kb"
+git clone https://github.com/plnoble/wiki-kb.git "$env:USERPROFILE\.codex\skills\compile-knowledge"
 ```
 
-之后在 Codex 里直接说：
+日常可以直接说：
 
 ```text
-使用 wiki-kb，帮我处理这篇资料并沉淀到知识库。
+使用 compile-knowledge，把这篇资料加工成知识库待审稿。
 ```
 
-如果界面支持显式技能名，也可以说：
+显式技能名：
 
 ```text
-$wiki-kb 摄入 raw/收件箱/xxx.md
+$compile-knowledge 处理 0 - Inbox/待处理/xxx.md
 ```
 
-### 1.2 在 Minis/POSIX 环境调用脚本
+脚本入口：
 
 ```bash
-sh /var/minis/skills/wiki-kb/scripts/wiki.sh <command> [args]
+sh /var/minis/skills/compile-knowledge/scripts/wiki.sh <command> [args]
 ```
 
-如需指定 Python：
+本地 Windows 可直接运行 Python 脚本，或在有 `sh` 的环境中运行 `scripts/wiki.sh`。
 
-```bash
-PYTHON=python sh /var/minis/skills/wiki-kb/scripts/wiki.sh health --root /path/to/vault
+## 目录
+
+```text
+0 - Inbox/待处理/          # 所有未处理输入
+0 - Inbox/待审/            # AI 待审稿、coverage map、影响面审查
+1 - Resources（资源）/     # 实体、概念、对比、查询、问题索引
+2 - Areas（领域）/         # 投资体系、AI与自动化、香港行动、知识库运营
+3 - Projects（项目）/候选/ # 高选择性的项目机会
+4 - Skills（技能）/待审/   # 可复用判断框架草稿
+5 - Archives（归档）/      # 原文、结束项目、过时知识、系统备份
+6 - Templates（模板）/
+7 - Daily（日记）/
 ```
 
-### 1.3 初始化 Obsidian vault
+资料类型不用文件夹分开，统一用 frontmatter：
 
-新 vault 不需要手动改名目录，直接运行：
-
-```bash
-sh scripts/wiki.sh init --root /path/to/vault
+```yaml
+source_kind: article | paper | note | screenshot | pdf | image | transcript | other
 ```
 
-它会创建中文目录、`index.md`、`SCHEMA.md`、`log.md`、`_meta/manifest.json`、`_meta/personal-context.md` 等基础文件。
-
-已有旧 vault 目前还没有自动迁移助手。不要在主库里一键批量改名；建议先新建一个测试 vault，用 `init` 建好结构，再手动小批量迁移旧内容。
-
-## 2. 日常知识加工闭环
-
-推荐闭环：
-
-1. 把外部资料放入 `raw/收件箱/`。
-2. 运行 `compile-source` 生成语义待审稿。
-3. 在 Obsidian 里审阅 `raw/待审/` 的草稿。
-4. 把 frontmatter 的 `status` 改成 `approved` 或 `rejected`。
-5. 需要合并手册时运行 `merge-manual`。
-6. 需要候选项目时运行 `candidate-from-draft`。
-7. 定期运行 `health`、`cache`、`p-index --generate`、`review-stale`。
-
-核心原则：
-
-- `raw/` 是原文区，不改原文，不删原文。
-- AI 和脚本先生成待审稿，不直接覆盖正式知识页。
-- 同主题优先更新旧页，不重复创建碎片页。
-- 投资内容只沉淀框架、条件、风险和检查清单，不输出买卖建议。
-- 有时效性的内容写清 `last_verified` 和 `review_after`。
-
-## 3. 功能总览
-
-### 初始化与结构
+## 初始化
 
 ```bash
 wiki.sh init --root <vault>
 ```
 
-用途：创建 wiki-kb 目录结构和基础元数据。
+初始化会创建 0-7 结构、`SCHEMA.md`、`index.md`、`log.md` 和 `_meta/` 文件。新初始化不会创建旧 `raw/` 目录。
 
-适合：第一次使用、创建测试 vault、检查新库骨架。
+## 旧库迁移
 
-### 转换与摄入
+先 dry-run：
 
 ```bash
-wiki.sh convert <file> --root <vault>
-wiki.sh ingest-draft raw/收件箱/xxx.md --root <vault>
-wiki.sh compile-source raw/收件箱/xxx.md --root <vault>
+wiki.sh migrate-para --root <vault> --dry-run
 ```
 
-`convert` 将 PDF/HTML/TXT/Markdown 转成 `raw/收件箱/` Markdown。
-
-`ingest-draft` 生成普通待审稿，并用 SHA-256 做去重。
-
-`compile-source` 生成语义待审稿，包含领域判断、手册目标、P-index 问题、Deep Research 缺口、候选卡建议和风险边界。
-
-### 审阅与合并
+确认移动计划后 apply：
 
 ```bash
-wiki.sh review --wiki-root <vault>
-wiki.sh merge-manual raw/待审/xxx.semantic.md --root <vault>
-wiki.sh candidate-from-draft raw/待审/xxx.semantic.md --root <vault> --index 1
+wiki.sh migrate-para --root <vault> --apply
 ```
 
-`review` 处理 `status: approved/rejected` 的普通待审稿。
+迁移支持旧 `raw/` 结构、旧中文顶层目录，以及上一版 0-6 编号结构。迁移后会清理空旧目录，不保留 redirect/stub。旧命令里写 `raw/收件箱/xxx.md` 仍会被脚本兼容解析到新 Inbox，但新资料建议直接放 `0 - Inbox/待处理/`。
 
-`merge-manual` 把已批准语义稿追加合并到 `target_path` 指定的手册，并在 `_archive/review-backups/` 备份旧手册。
+## 日常加工
 
-`candidate-from-draft` 将语义稿里的候选建议提升为 `候选/` 卡片，默认状态为 `suggested`。
+把资料放入：
 
-### 查询与导航
-
-```bash
-wiki.sh search "关键词" --root <vault> --limit 10
-wiki.sh graph --root <vault>
-wiki.sh moc --root <vault>
-wiki.sh cache --wiki-root <vault>
-wiki.sh p-index
-wiki.sh p-index --generate --root <vault> --limit 20
+```text
+0 - Inbox/待处理/
 ```
 
-`search` 做本地全文搜索。
-
-`graph` 生成图谱数据。
-
-`moc` 更新 `index.md` 导航。
-
-`cache` 更新 `_meta/hot.md`，让 AI 快速知道近期状态。
-
-`p-index --generate` 为缺少问题入口的概念/实体生成轻量问题页。
-
-### 维护与治理
+生成普通待审稿：
 
 ```bash
+wiki.sh ingest-draft "0 - Inbox/待处理/xxx.md" --root <vault>
+```
+
+生成语义编译待审稿、Source Coverage Map 和 Impact Review：
+
+```bash
+wiki.sh compile-source "0 - Inbox/待处理/xxx.md" --root <vault>
+```
+
+输出在：
+
+```text
+0 - Inbox/待审/xxx.semantic.md
+0 - Inbox/待审/xxx.coverage.md
+```
+
+Coverage Map 必须包含：
+
+```text
+原文要点 | 是否沉淀 | 目标 Resource | 未处理原因
+```
+
+Impact Review 必须包含：可能新增/更新的 Resources、可能影响的 Areas/Projects/Skills、冲突或过时内容、不更新原因、仍需研究的问题。
+
+## 审阅与正式沉淀
+
+在 Obsidian 里审阅 `0 - Inbox/待审/`，确认后把 frontmatter 改为：
+
+```yaml
+status: approved
+```
+
+合并到领域手册：
+
+```bash
+wiki.sh merge-manual "0 - Inbox/待审/xxx.semantic.md" --root <vault>
+```
+
+从待审稿生成候选项目：
+
+```bash
+wiki.sh candidate-from-draft "0 - Inbox/待审/xxx.semantic.md" --root <vault> --index 1
+```
+
+从稳定资源蒸馏 Skill 草稿：
+
+```bash
+wiki.sh skill "1 - Resources（资源）/概念/xxx.md" --wiki-root <vault>
+```
+
+项目候选进入：
+
+```text
+3 - Projects（项目）/候选/
+```
+
+Skill 草稿进入：
+
+```text
+4 - Skills（技能）/待审/
+```
+
+## 查询和问答沉淀
+
+查询个人知识库：
+
+```bash
+wiki.sh search "关键词" --root <vault>
+```
+
+如果一个回答有长期价值，并且用户明确要求保存，创建问答待审稿：
+
+```bash
+wiki.sh answer-draft --root <vault> --question "我去香港能做什么？" --answer "基于库内资料..."
+```
+
+问答待审稿只进入 `0 - Inbox/待审/`。批准后再进入 `1 - Resources（资源）/查询/`，不要从对话直接写正式查询页。
+
+## 维护
+
+```bash
+wiki.sh p-index --generate --root <vault>
 wiki.sh health --root <vault>
 wiki.sh health-save --root <vault>
-wiki.sh fix --root <vault> --dry-run
-wiki.sh maintain --root <vault> --dry-run
-wiki.sh confidence --root <vault>
-wiki.sh contradiction --root <vault> --save
-wiki.sh review-stale --root <vault>
+wiki.sh graph --root <vault>
+wiki.sh moc --root <vault>
+wiki.sh cache --root <vault>
 wiki.sh all
 ```
 
-`health` 检查结构、frontmatter、链接、热缓存、P-index、研究议程等。
+## 五个核心模式
 
-`fix` 是保守修复器：补目录和低风险 frontmatter，断链只报告。
+Inbox -> Resources：全而广，高召回，不漏信息。
 
-`maintain` 批量补齐维护字段。
+Resources -> Areas：精而准，形成长期领域手册，不堆摘要。
 
-`confidence` 审计可信度字段。
+Resources/Areas -> Projects：少而狠，只保留值得孵化的候选。
 
-`contradiction` 汇总矛盾标注。
+Resources/Areas -> Skills：规则化，把稳定判断沉淀成可复用框架。
 
-`review-stale` 生成过期复查报告，不自动删除或归档。
+Knowledge -> Answer -> Review -> Resources/查询：先基于个人库回答，用户明确保存后才生成待审稿。
 
-`all` 运行标准维护流水线。第一次用在主库前，先在测试 vault 跑。
+## 典型例子
 
-### Deep Research
+理财文章：放入 Inbox，运行 `compile-source`，审阅 coverage map 和 Impact Review；批准后，概念进入 Resources，体系结论合并到 `2 - Areas（领域）/投资体系/投资策略手册.md`。
 
-```bash
-wiki.sh auto-research --root <vault>
-wiki.sh research-status --root <vault>
-wiki.sh research "研究主题" --wiki-root <vault>
-wiki.sh research "研究主题" --wiki-root <vault> --agenda-only
-wiki.sh research "研究主题" --wiki-root <vault> --result-file results.md
-```
+Codex 技巧：放入 Inbox，编译后合并到 `2 - Areas（领域）/AI与自动化/Codex操作手册.md`；稳定操作步骤可蒸馏到 `4 - Skills（技能）/待审/`。
 
-脚本只生成研究议程、整合研究结果、写入 inbox；联网搜索由 AI/Minis 的原生能力完成。
-
-触发原则：有冲突、有时效风险、有关键缺口、有多次重复但未成体系的问题时才 Deep Research，不是每篇资料都自动研究。
-
-### Skill 蒸馏与候选项目
-
-```bash
-wiki.sh skill 概念/xxx.md --wiki-root <vault> --name "skill-name"
-wiki.sh skill --list-candidates --wiki-root <vault>
-wiki.sh candidate 概念/xxx.md --wiki-root <vault> --name "项目名"
-wiki.sh candidate --idea "想法文字" --wiki-root <vault>
-```
-
-`skill` 从高质量知识页蒸馏可复用技能草稿。
-
-`candidate` 从知识页或想法生成候选项目卡，适合把“可行动机会”从知识里分离出来。
-
-### 日记
-
-```bash
-wiki.sh journal --wiki-root <vault>
-wiki.sh journal --wiki-root <vault> --list
-wiki.sh journal --wiki-root <vault> --extract --days 7
-```
-
-日记默认是个人记录，不主动加工。只有明确要求提炼时，才从最近日记生成知识建议。
-
-## 4. 三个典型场景
-
-### 理财文章
-
-1. 放入 `raw/收件箱/grid-strategy.md`。
-2. 运行 `compile-source`。
-3. 审阅语义稿：让 AI 解释网格策略、适用行情、仓位/板块占比、风险和失效条件。
-4. 批准后用 `merge-manual` 合入 `合成/投资策略手册.md`。
-5. 如果出现工具机会，用 `candidate-from-draft` 生成候选卡。
-
-### Codex 使用技巧
-
-1. 放入 `raw/收件箱/codex-tips.md`。
-2. 运行 `compile-source`。
-3. 审阅语义稿：用通俗语言解释操作步骤、适用界面、限制、版本日期。
-4. 合入 `合成/Codex操作手册.md`。
-5. 定期运行 `review-stale`，过时内容进入复查。
-
-### 香港开户/旅游
-
-1. 把开户、交通、行程、购物、签注等资料都放入 `raw/收件箱/`。
-2. 分别 `compile-source`，只沉淀与你兴趣相关的步骤和选择。
-3. 合入 `合成/香港行动指南.md`。
-4. 以后问“我去香港能做什么”，AI 应先查你的 `hot.md`、`index.md` 和相关香港页面，再回答与你资料匹配的行动清单。
-
-## 5. 现在还要不要手动改名
-
-新建 vault：不需要手动改名。运行 `wiki.sh init --root <vault>`。
-
-已有旧 vault：自动迁移助手还没做完。当前安全路径是：
-
-1. 新建测试 vault。
-2. 用 `init` 创建新结构。
-3. 复制少量旧资料试跑 `compile-source`、`review`、`merge-manual`。
-4. 确认路径和 Obsidian 显示正常后，再分批迁移。
-
-AI 使用方式也简化了：你不需要每次背命令。日常可以直接说“使用 wiki-kb，把这篇资料加工成知识库待审稿”，AI 应根据 `SKILL.md` 读取对应 reference，并调用合适命令。
+香港开户/旅游：放入 Inbox，编译后合并到 `2 - Areas（领域）/香港行动/香港行动指南.md`；以后查询时优先基于你保存过且感兴趣的资料回答。

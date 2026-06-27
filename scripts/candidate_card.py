@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """
-candidate_card.py — 候选项目卡生成器 v3
+candidate_card.py — Knowledge Compiler 候选项目卡生成器
 
-从概念/实体页生成候选项目卡，存入 候选/，孵化种子想法。
-
-v3 新增：中文目录路径（候选/、概念/、实体/）
+从 Resources 知识页生成候选项目卡，存入 Projects 候选。
 
 用法：
-  python3 scripts/candidate_card.py 概念/智能代理记忆.md
-  python3 scripts/candidate_card.py --name "知识图谱可视化工具" 概念/知识图谱.md
+  python3 scripts/candidate_card.py "1 - Resources（资源）/概念/智能代理记忆.md"
+  python3 scripts/candidate_card.py --name "知识图谱可视化工具" "1 - Resources（资源）/概念/知识图谱.md"
   python3 scripts/candidate_card.py --idea "构建一个自动蒸馏 Skill 的工具"  # 纯想法，无需来源页
 """
 
@@ -19,7 +17,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import get_wiki_root, DIRS, RAW
+from wiki_dirs import DIRS, get_wiki_root, resolve_vault_path
 
 
 # ──────────────────────────────────────────────
@@ -58,7 +56,7 @@ def update_index_candidates(wiki_root: Path, page_name: str, summary: str) -> No
     index_path = wiki_root / "index.md"
     if not index_path.exists():
         return
-    entry_line = f"- [[候选/{page_name}]] — {summary}\n"
+    entry_line = f"- [[{DIRS['候选']}/{page_name}]] — {summary}\n"
     content = index_path.read_text(encoding="utf-8")
     section_header = "## 候选"
     if section_header in content:
@@ -110,12 +108,12 @@ def generate_candidate_card(
         all_content += " " + body[:400]
 
     # 查找相关 Skill
-    skills_dir = wiki_root / "技能"
+    skills_dir = wiki_root / DIRS["技能"]
     if skills_dir.exists():
         for skill_file in list(skills_dir.glob("*.md"))[:3]:
             skill_meta, _ = parse_frontmatter(skill_file.read_text(encoding="utf-8"))
             if skill_meta.get("status", "").lower() == "approved":
-                skill_links_lines.append(f"- [[技能/{skill_file.stem}]]")
+                skill_links_lines.append(f"- [[{DIRS['技能']}/{skill_file.stem}]]")
 
     tags = infer_domain_tags(all_content)
     sources_yaml = "[" + ", ".join(source_refs) + "]" if source_refs else "[]"
@@ -197,14 +195,14 @@ def main():
 
     if not args.sources and not args.idea:
         print("❌ 请指定来源知识页路径，或用 --idea 提供想法文字。")
-        print("   用法: python3 scripts/candidate_card.py 概念/etf.md")
+        print(f"   用法: python3 scripts/candidate_card.py \"{DIRS['概念']}/etf.md\"")
         print("   或: python3 scripts/candidate_card.py --idea '构建知识图谱工具'")
         sys.exit(1)
 
     # 解析来源文件
     source_data = []
     for src_str in (args.sources or [])[:3]:
-        src_path = wiki_root / src_str if not Path(src_str).is_absolute() else Path(src_str)
+        src_path = resolve_vault_path(wiki_root, src_str)
         if not src_path.exists():
             print(f"❌ 文件不存在: {src_path}")
             sys.exit(1)
@@ -231,7 +229,7 @@ def main():
         filename = "candidate-" + date.today().isoformat()
 
     # 输出路径
-    candidates_dir = wiki_root / "候选"
+    candidates_dir = wiki_root / DIRS["候选"]
     candidates_dir.mkdir(parents=True, exist_ok=True)
     output_path = candidates_dir / f"{filename}.md"
 
@@ -254,7 +252,7 @@ def main():
     # 更新 index.md
     update_index_candidates(wiki_root, filename, project_name)
 
-    print(f"\n✅ 候选卡已生成: 候选/{filename}.md")
+    print(f"\n✅ 候选卡已生成: {DIRS['候选']}/{filename}.md")
     print(f"\n📝 下一步：")
     print(f"   1. Minis AI 会根据注释中的来源内容填写各节内容")
     print(f"   2. 或在 Obsidian 中手动编辑候选卡")
@@ -262,7 +260,7 @@ def main():
 
     # 写日志
     sources_str = ", ".join(f"[[{p.stem}]]" for p, _, _ in source_data)
-    log_entry = f"生成候选卡: [[候选/{filename}]]（项目: {project_name}"
+    log_entry = f"生成候选卡: [[{DIRS['候选']}/{filename}]]（项目: {project_name}"
     if sources_str:
         log_entry += f"，来源: {sources_str}"
     log_entry += "）"

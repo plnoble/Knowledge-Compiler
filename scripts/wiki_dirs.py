@@ -1,141 +1,298 @@
 """
-wiki_dirs.py — wiki-kb v3 目录配置中心（全中文）
+compile-knowledge directory configuration.
 
-所有脚本通过 import wiki_dirs 获取标准路径，避免硬编码散落各处。
-
-使用方式：
-    from wiki_dirs import get_wiki_root, DIRS, RAW
-
-    root = get_wiki_root()
-    inbox = root / RAW["收件箱"]
+All scripts should import paths from this module instead of hardcoding vault
+directories. Legacy paths are still accepted as input and normalized to the
+current 0-7 Knowledge Compiler layout.
 """
+
+from __future__ import annotations
 
 import os
 from pathlib import Path
 
-# ──────────────────────────────────────────────
-# Wiki 根目录检测
-# ──────────────────────────────────────────────
 
 _WIKI_ROOT_CANDIDATES = [
-    "/var/minis/mounts/wiki",      # Minis iOS 挂载点
-    os.path.expanduser("~/wiki"),  # 本地 ~/wiki
-    os.getcwd(),                   # 当前工作目录（脚本调试时）
+    "/var/minis/mounts/wiki",
+    os.path.expanduser("~/wiki"),
+    os.getcwd(),
 ]
 
+
 def get_wiki_root(override: str | None = None) -> Path:
-    """按优先级检测 wiki 根目录。"""
+    """Detect the wiki root unless an explicit override is provided."""
     if override:
         return Path(override)
     env = os.environ.get("WIKI_ROOT")
     if env:
         return Path(env)
-    for c in _WIKI_ROOT_CANDIDATES:
-        p = Path(c)
-        if p.is_dir() and ((p / "log.md").exists() or (p / "SCHEMA.md").exists()):
-            return p
+    for candidate in _WIKI_ROOT_CANDIDATES:
+        path = Path(candidate)
+        if path.is_dir() and ((path / "log.md").exists() or (path / "SCHEMA.md").exists()):
+            return path
     return Path.cwd()
 
+
 # ──────────────────────────────────────────────
-# 知识页目录（顶级，AI 维护）
+# 0-7 Knowledge Compiler layout
 # ──────────────────────────────────────────────
+
+INBOX_PENDING = "0 - Inbox/待处理"
+INBOX_REVIEW = "0 - Inbox/待审"
+
+RESOURCES_ROOT = "1 - Resources（资源）"
+RESOURCE_ENTITY = f"{RESOURCES_ROOT}/实体"
+RESOURCE_CONCEPT = f"{RESOURCES_ROOT}/概念"
+RESOURCE_COMPARISON = f"{RESOURCES_ROOT}/对比"
+RESOURCE_QUERY = f"{RESOURCES_ROOT}/查询"
+RESOURCE_P_INDEX = f"{RESOURCES_ROOT}/问题索引"
+
+AREA_INVESTMENT = "2 - Areas（领域）/投资体系"
+AREA_AI_AUTOMATION = "2 - Areas（领域）/AI与自动化"
+AREA_HONG_KONG = "2 - Areas（领域）/香港行动"
+AREA_KB_OPS = "2 - Areas（领域）/知识库运营"
+AREA_UNCLASSIFIED_SYNTHESIS = f"{AREA_KB_OPS}/待分类合成"
+
+PROJECT_CANDIDATES = "3 - Projects（项目）/候选"
+PROJECT_ACTIVE = "3 - Projects（项目）/活跃项目"
+PROJECT_PAUSED = "3 - Projects（项目）/已暂停"
+
+SKILLS_ROOT = "4 - Skills（技能）"
+SKILL_REVIEW = f"{SKILLS_ROOT}/待审"
+
+ARCHIVE_SOURCES = "5 - Archives（归档）/已归档来源"
+ARCHIVE_FINISHED_PROJECTS = "5 - Archives（归档）/已结束项目"
+ARCHIVE_STALE_KNOWLEDGE = "5 - Archives（归档）/过时知识"
+ARCHIVE_BACKUPS = "5 - Archives（归档）/系统备份"
+
+TEMPLATES_DIR = "6 - Templates（模板）"
+DAILY_DIR = "7 - Daily（日记）"
+
 
 DIRS = {
-    "实体":     "实体",       # 人物、机构、产品
-    "概念":     "概念",       # 思想、框架、模型
-    "对比":     "对比",       # 并排分析
-    "合成":     "合成",       # AI 综合结论
-    "查询":     "查询",       # 问答记录
-    "问题索引": "问题索引",   # P-index：按问题检索入口
-    "技能":     "技能",       # 可复用判断框架
-    "技能待审": "技能/待审",  # Skill 草稿待审
-    "候选":     "候选",       # 孵化中的项目想法
-    "日记":     "日记",       # 日记（用户自由写）
+    "实体": RESOURCE_ENTITY,
+    "概念": RESOURCE_CONCEPT,
+    "对比": RESOURCE_COMPARISON,
+    "合成": AREA_UNCLASSIFIED_SYNTHESIS,
+    "查询": RESOURCE_QUERY,
+    "问题索引": RESOURCE_P_INDEX,
+    "技能": SKILLS_ROOT,
+    "技能待审": SKILL_REVIEW,
+    "候选": PROJECT_CANDIDATES,
+    "活跃项目": PROJECT_ACTIVE,
+    "已暂停项目": PROJECT_PAUSED,
+    "日记": DAILY_DIR,
+    "投资体系": AREA_INVESTMENT,
+    "AI与自动化": AREA_AI_AUTOMATION,
+    "香港行动": AREA_HONG_KONG,
+    "知识库运营": AREA_KB_OPS,
 }
 
-# ──────────────────────────────────────────────
-# raw/ 子目录（原始来源，只读区）
-# ──────────────────────────────────────────────
 
 RAW = {
-    "收件箱": "raw/收件箱",   # Web Clipper 剪藏落地处（待加工）
-    "待审":   "raw/待审",     # AI 生成的待审草稿
-    "已归档": "raw/已归档",   # 审阅通过后归档
-    "论文":   "raw/论文",
-    "笔记":   "raw/笔记",
-    "资产":   "raw/资产",
+    "收件箱": INBOX_PENDING,
+    "待处理": INBOX_PENDING,
+    "待审": INBOX_REVIEW,
+    "已归档": ARCHIVE_SOURCES,
+    "论文": INBOX_PENDING,
+    "笔记": INBOX_PENDING,
+    "资产": INBOX_PENDING,
 }
 
-# ──────────────────────────────────────────────
-# _meta/ 核心文件
-# ──────────────────────────────────────────────
 
 META_DIR = "_meta"
 
 META_FILES = {
-    "hot":     "_meta/hot.md",              # 热缓存（~500 字，每次会话更新）
-    "manifest":"_meta/manifest.json",       # 摄入 Delta 追踪（哈希去重）
-    "agenda":  "_meta/research-agenda.md", # 研究议程（Loop 3）
-    "health":  "_meta/health-report.md",   # 最新健康检查报告
-    "graph":   "_meta/graph.html",         # 知识图谱
+    "hot": "_meta/hot.md",
+    "manifest": "_meta/manifest.json",
+    "agenda": "_meta/research-agenda.md",
+    "health": "_meta/health-report.md",
+    "graph": "_meta/graph.html",
 }
 
-# ──────────────────────────────────────────────
-# 历史兼容映射（英文旧路径 → 中文新路径）
-# 用于迁移工具，普通脚本不需要
-# ──────────────────────────────────────────────
+
+EXTRA_DIRS = [
+    PROJECT_CANDIDATES,
+    PROJECT_ACTIVE,
+    PROJECT_PAUSED,
+    AREA_INVESTMENT,
+    AREA_AI_AUTOMATION,
+    AREA_HONG_KONG,
+    AREA_KB_OPS,
+    AREA_UNCLASSIFIED_SYNTHESIS,
+    SKILLS_ROOT,
+    SKILL_REVIEW,
+    ARCHIVE_SOURCES,
+    ARCHIVE_FINISHED_PROJECTS,
+    ARCHIVE_STALE_KNOWLEDGE,
+    f"{ARCHIVE_BACKUPS}/review-backups",
+    TEMPLATES_DIR,
+    DAILY_DIR,
+]
+
+
+LEGACY_MANUAL_MAP = {
+    "合成/投资策略手册.md": f"{AREA_INVESTMENT}/投资策略手册.md",
+    "合成/Codex操作手册.md": f"{AREA_AI_AUTOMATION}/Codex操作手册.md",
+    "合成/香港行动指南.md": f"{AREA_HONG_KONG}/香港行动指南.md",
+}
+
 
 LEGACY_MAP = {
-    "entities":          "实体",
-    "concepts":          "概念",
-    "comparisons":       "对比",
-    "synthesis":         "合成",
-    "queries":           "查询",
-    "skills":            "技能",
-    "skills/review":     "技能/待审",
-    "candidates":        "候选",
-    "raw/inbox":         "raw/收件箱",
-    "raw/articles":      "raw/收件箱",
-    "raw/review":        "raw/待审",
-    "raw/processed":     "raw/已归档",
-    "raw/papers":        "raw/论文",
-    "raw/transcripts":   "raw/笔记",
-    "raw/assets":        "raw/资产",
+    # English v1/v2 paths.
+    "entities": RESOURCE_ENTITY,
+    "concepts": RESOURCE_CONCEPT,
+    "comparisons": RESOURCE_COMPARISON,
+    "synthesis": AREA_UNCLASSIFIED_SYNTHESIS,
+    "queries": RESOURCE_QUERY,
+    "skills/review": SKILL_REVIEW,
+    "skills": SKILLS_ROOT,
+    "candidates": PROJECT_CANDIDATES,
+    "raw/inbox": INBOX_PENDING,
+    "raw/articles": INBOX_PENDING,
+    "raw/review": INBOX_REVIEW,
+    "raw/processed": ARCHIVE_SOURCES,
+    "raw/papers": INBOX_PENDING,
+    "raw/transcripts": INBOX_PENDING,
+    "raw/assets": INBOX_PENDING,
+
+    # Old raw/Chinese source paths.
+    "raw/收件箱": INBOX_PENDING,
+    "raw/论文": INBOX_PENDING,
+    "raw/笔记": INBOX_PENDING,
+    "raw/资产": INBOX_PENDING,
+    "raw/待审": INBOX_REVIEW,
+    "raw/已归档": ARCHIVE_SOURCES,
+
+    # Old Chinese top-level paths.
+    "实体": RESOURCE_ENTITY,
+    "概念": RESOURCE_CONCEPT,
+    "对比": RESOURCE_COMPARISON,
+    "查询": RESOURCE_QUERY,
+    "问题索引": RESOURCE_P_INDEX,
+    "技能/待审": SKILL_REVIEW,
+    "技能": SKILLS_ROOT,
+    "候选": PROJECT_CANDIDATES,
+    "日记": DAILY_DIR,
+    "_archive": ARCHIVE_BACKUPS,
+
+    # Previous 0-6 compile-knowledge layout.
+    "3 - Resources（资源）/实体": RESOURCE_ENTITY,
+    "3 - Resources（资源）/概念": RESOURCE_CONCEPT,
+    "3 - Resources（资源）/对比": RESOURCE_COMPARISON,
+    "3 - Resources（资源）/查询": RESOURCE_QUERY,
+    "3 - Resources（资源）/问题索引": RESOURCE_P_INDEX,
+    "3 - Resources（资源）/技能/待审": SKILL_REVIEW,
+    "3 - Resources（资源）/技能": SKILLS_ROOT,
+    "3 - Resources（资源）": RESOURCES_ROOT,
+    "1 - Projects（项目）/候选": PROJECT_CANDIDATES,
+    "1 - Projects（项目）/活跃项目": PROJECT_ACTIVE,
+    "1 - Projects（项目）/已暂停": PROJECT_PAUSED,
+    "1 - Projects（项目）": "3 - Projects（项目）",
+    "4 - Archives（归档）/已归档来源": ARCHIVE_SOURCES,
+    "4 - Archives（归档）/已结束项目": ARCHIVE_FINISHED_PROJECTS,
+    "4 - Archives（归档）/过时知识": ARCHIVE_STALE_KNOWLEDGE,
+    "4 - Archives（归档）/系统备份": ARCHIVE_BACKUPS,
+    "4 - Archives（归档）": "5 - Archives（归档）",
+    "5 - Templates（模板）": TEMPLATES_DIR,
+    "6 - Daily（日记）": DAILY_DIR,
+
+    **LEGACY_MANUAL_MAP,
 }
 
-# ──────────────────────────────────────────────
-# 健康检查用的扫描列表
-# ──────────────────────────────────────────────
 
-# 需要检查格式/链接/大小的知识页目录
-CHECK_DIRS = ["实体", "概念", "对比", "合成", "查询"]
+CHECK_DIRS = [
+    RESOURCE_ENTITY,
+    RESOURCE_CONCEPT,
+    RESOURCE_COMPARISON,
+    RESOURCE_QUERY,
+]
 
-# 所有知识页目录（用于建立完整页面索引）
-ALL_PAGE_DIRS = ["实体", "概念", "对比", "合成", "查询", "技能", "候选"]
+ALL_PAGE_DIRS = [
+    RESOURCE_ENTITY,
+    RESOURCE_CONCEPT,
+    RESOURCE_COMPARISON,
+    RESOURCE_QUERY,
+    RESOURCE_P_INDEX,
+    SKILLS_ROOT,
+    PROJECT_CANDIDATES,
+    PROJECT_ACTIVE,
+    PROJECT_PAUSED,
+    AREA_INVESTMENT,
+    AREA_AI_AUTOMATION,
+    AREA_HONG_KONG,
+    AREA_KB_OPS,
+    AREA_UNCLASSIFIED_SYNTHESIS,
+]
 
-# raw/ 子目录列表（用于统计）
-ALL_RAW_DIRS = ["收件箱", "待审", "已归档", "论文", "笔记", "资产"]
+ALL_RAW_DIRS = ["待处理", "待审", "已归档"]
 
-# ──────────────────────────────────────────────
-# 便捷函数
-# ──────────────────────────────────────────────
+
+def _clean_rel(value: str | Path) -> str:
+    return str(value).replace("\\", "/").lstrip("/").strip()
+
+
+def normalize_rel_path(value: str | Path) -> str:
+    """Normalize a vault-relative path, including legacy directory prefixes."""
+    rel = _clean_rel(value)
+    if rel in LEGACY_MANUAL_MAP:
+        return LEGACY_MANUAL_MAP[rel]
+    if rel.startswith("合成/"):
+        return f"{AREA_UNCLASSIFIED_SYNTHESIS}/{rel[len('合成/'):]}"
+    for old, new in sorted(LEGACY_MAP.items(), key=lambda item: len(item[0]), reverse=True):
+        if rel == old:
+            return new
+        if rel.startswith(old + "/"):
+            return new + rel[len(old) :]
+    return rel
+
+
+def resolve_vault_path(root: Path, value: str | Path) -> Path:
+    """Resolve an absolute path or vault-relative path with legacy mapping."""
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    direct = root / _clean_rel(value)
+    if direct.exists():
+        return direct
+    return root / normalize_rel_path(value)
+
+
+def rel_to_root(root: Path, path: Path) -> str:
+    try:
+        return str(path.relative_to(root)).replace("\\", "/")
+    except ValueError:
+        return str(path).replace("\\", "/")
+
 
 def get_dir(root: Path, key: str) -> Path:
-    """获取知识页目录路径。key 是 DIRS 的键。"""
+    """Return a standard knowledge directory by DIRS key."""
     return root / DIRS[key]
 
+
 def get_raw(root: Path, key: str) -> Path:
-    """获取 raw/ 子目录路径。key 是 RAW 的键。"""
+    """Return a standard source/review/archive directory by RAW key."""
     return root / RAW[key]
 
+
 def get_meta(root: Path, key: str) -> Path:
-    """获取 _meta/ 文件路径。key 是 META_FILES 的键。"""
+    """Return a metadata file path by META_FILES key."""
     return root / META_FILES[key]
 
+
+def all_managed_dirs() -> list[str]:
+    """Return unique directories managed by initialization."""
+    ordered = [*RAW.values(), *DIRS.values(), *EXTRA_DIRS, META_DIR]
+    seen: set[str] = set()
+    result: list[str] = []
+    for rel in ordered:
+        if rel not in seen:
+            seen.add(rel)
+            result.append(rel)
+    return result
+
+
 def ensure_dirs(root: Path) -> None:
-    """确保所有必要目录存在（首次初始化时调用）。"""
-    for rel in DIRS.values():
+    """Ensure all required 0-7 layout directories exist."""
+    for rel in all_managed_dirs():
         (root / rel).mkdir(parents=True, exist_ok=True)
-    for rel in RAW.values():
-        (root / rel).mkdir(parents=True, exist_ok=True)
-    (root / META_DIR).mkdir(parents=True, exist_ok=True)

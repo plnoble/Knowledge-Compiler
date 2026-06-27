@@ -24,10 +24,11 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 from wiki_dirs import get_wiki_root, ALL_PAGE_DIRS, META_FILES
+from wiki_dirs import DIRS
 
 today = datetime.now().strftime("%Y-%m-%d")
 
-PAGE_DIRS = ["实体", "概念", "对比", "查询"]
+PAGE_DIRS = [DIRS["实体"], DIRS["概念"], DIRS["对比"], DIRS["查询"]]
 
 
 def strip_fm(c: str) -> str:
@@ -161,7 +162,7 @@ def main():
     low_context.sort(key=lambda x: -x["inbound"])
 
     # P-index 覆盖缺口：概念/实体页应至少有一个问题页指向它。
-    p_index_dir = WIKI / "问题索引"
+    p_index_dir = WIKI / DIRS["问题索引"]
     p_index_text = ""
     if p_index_dir.is_dir():
         for f in sorted(p_index_dir.glob("*.md")):
@@ -172,7 +173,7 @@ def main():
     p_index_gaps = [
         {"name": name, "dir": data["dir"], "inbound": inbound.get(name, 0)}
         for name, data in pages.items()
-        if data["dir"] in ["概念", "实体"]
+        if data["dir"] in [DIRS["概念"], DIRS["实体"]]
         and f"[[{name}]]" not in p_index_text
         and f"[[{data['dir']}/{name}]]" not in p_index_text
     ]
@@ -214,7 +215,7 @@ def main():
     # 5. 生成搜索查询建议
     domain_terms = set()
     for name, data in pages.items():
-        if data["dir"] in ["概念", "实体"] and inbound.get(name, 0) >= 2:
+        if data["dir"] in [DIRS["概念"], DIRS["实体"]] and inbound.get(name, 0) >= 2:
             domain_terms.add(name)
     top_terms = sorted(domain_terms, key=lambda x: -inbound.get(x, 0))[:8]
 

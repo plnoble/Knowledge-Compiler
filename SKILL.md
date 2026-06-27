@@ -1,156 +1,226 @@
 ---
-name: wiki-kb
-description: Manage a personal Obsidian wiki-kb for AI/automation, investment, Hong Kong/action planning, and knowledge-management notes using Chinese vault directories, semantic review drafts, manuals, P-index, candidate cards, and Loop Engineering. Use when Codex/Minis needs to ingest external sources, compile raw/收件箱 material into reviewable knowledge updates, query personal knowledge, update manuals, create or promote candidate cards, trigger gap-based Deep Research, run health/maintenance/search tools, or edit this wiki-kb skill and scripts.
+name: compile-knowledge
+description: Turn a personal Obsidian vault into a review-gated Knowledge Compiler. Use when Codex/Minis needs to process Inbox material into Resources, roll Resources into Areas, identify project candidates, distill reusable Skills, answer from a personal knowledge base, migrate an old wiki-kb vault, or maintain the 0-7 knowledge pipeline.
 ---
 
-# wiki-kb v3
+# Knowledge Compiler / 知识编译器
 
-> Wiki 才是产品，对话只是界面。好的回答不要消失在聊天记录里；把可复用知识编译进 Wiki。
+这是一个个人知识编译流水线，不是资料仓库。用户只负责把资料放进 Inbox；AI 负责高召回加工、审阅流转、资源沉淀、领域汇总、项目机会识别、技能沉淀和个人化问答。
 
-## Start Here
+核心流向：
 
-每次处理真实知识库任务时先做：
-
-1. 读 `_meta/hot.md`，了解近期状态。
-2. 读 `index.md`，避免重复创建页面。
-3. 只读取当前任务需要的 3-5 个相关页面。
-4. 结束前更新 `_meta/hot.md`，并在需要时更新 `index.md`、`log.md`、manifest。
-
-如果要创建页面、检查目录或写 frontmatter，读 [目录与 Frontmatter](references/structure-frontmatter.md)。
-
-如果要执行摄入、审阅、查询、Skill 蒸馏、候选卡、研究或日记提炼，读 [工作流细节](references/workflows.md)。
-
-如果要维护、健康检查、研究议程、知识老化或排查命令，读 [Loop 与维护](references/loops-maintenance.md)。
-
-处理领域资料时按需读取：投资读 [投资体系 Playbook](references/domain-investment.md)；Codex/AI 工具读 [AI 与 Codex 工具 Playbook](references/domain-ai-tools.md)；香港/出行读 [香港与出行 Playbook](references/domain-hong-kong.md)。
-
-## Core Rules
-
-- `raw/` 是原始来源区；不要修改或删除原文。加工结果写入 `raw/待审/` 或知识页。
-- 创建页面前查 `index.md` 和目标目录；同主题页面优先更新，不重复创建。
-- 质量优先；一篇文章宁可沉淀 3 个扎实页面，不要铺 10 个浅页面。
-- 遇到新旧信息冲突，不覆盖旧结论；用 `[!矛盾]` 标注，详见 `references/workflows.md`。
-- 输出给用户的回答若有长期价值，询问是否存入 `查询/` 或 `合成/`。
-- 目录、标签、正文优先中文；普通文件名优先英文小写连字符。
-- 脚本接口以 `scripts/wiki.sh` 为准；不要凭旧文档猜命令。
-
-## Command Surface
-
-在 Minis 中通常使用：
-
-```bash
-sh /var/minis/skills/wiki-kb/scripts/wiki.sh <command> [args]
+```text
+0 - Inbox/待处理
+-> 0 - Inbox/待审
+-> 1 - Resources（资源）
+-> 2 - Areas（领域）
+-> 3 - Projects（项目）/候选
+-> 4 - Skills（技能）/待审
+-> 5 - Archives（归档）/已归档来源
 ```
 
-在本地仓库调试可直接运行：
+正式写入必须经过待审；不要把未批准内容直接污染 Resources、Areas、Projects 或 Skills。
 
-```bash
-python scripts/verify_static.py
-python -m unittest tests.test_script_integrity
-python scripts/smoke_wiki_sh.py
+## 启动协议
+
+1. 先确定 vault root；不确定时运行 `wiki.sh init --root <vault>` 或询问用户。
+2. 回答或加工前，先读 `_meta/hot.md`、`index.md`、相关 `SCHEMA.md`、Areas、Resources 和个人上下文。
+3. 所有外部材料默认进入 `0 - Inbox/待处理/`；资料类型用 frontmatter 表示：
+
+```yaml
+source_kind: article | paper | note | screenshot | pdf | image | transcript | other
 ```
 
-常用命令：
+4. 新资料加工结果先进入 `0 - Inbox/待审/`，必须包含待审稿、Source Coverage Map 和 Impact Review / 影响面审查。
+5. 用户批准后，才写入正式 Resources、Areas、Projects、Skills 或 Archives。
+6. 回答用户问题时先查个人知识库；只有用户明确说“沉淀/保存/记入知识库”时，才创建问答待审稿。
+
+## 目录框架
+
+```text
+0 - Inbox/
+  待处理/
+  待审/
+1 - Resources（资源）/
+  实体/
+  概念/
+  对比/
+  查询/
+  问题索引/
+2 - Areas（领域）/
+  投资体系/
+  AI与自动化/
+  香港行动/
+  知识库运营/
+3 - Projects（项目）/
+  候选/
+  活跃项目/
+  已暂停/
+4 - Skills（技能）/
+  待审/
+5 - Archives（归档）/
+  已归档来源/
+  已结束项目/
+  过时知识/
+  系统备份/
+6 - Templates（模板）/
+7 - Daily（日记）/
+_meta/
+SCHEMA.md
+index.md
+log.md
+```
+
+结构、frontmatter 模板和字段细节见 [structure-frontmatter](references/structure-frontmatter.md)。
+
+## 五个核心模式
+
+### 模式 1：Inbox -> Resources，全而广
+
+输入：`0 - Inbox/待处理/`
+
+输出：`0 - Inbox/待审/`
+
+目标是高召回。必须生成 Source Coverage Map：
+
+```text
+原文要点 -> 是否沉淀 -> 目标 Resource -> 未处理原因
+```
+
+语义待审稿还必须生成 Impact Review：
+
+```text
+可能新增的 Resources
+可能更新的 Resources
+可能影响的 Areas
+可能影响的 Projects
+可能影响的 Skills
+冲突或过时内容
+不更新原因
+仍需研究的问题
+```
+
+脚本可创建语义待审稿和 coverage map；具体 Resource 页面仍由 AI/用户审阅后写入。
+
+### 模式 2：Resources -> Areas，精而准
+
+输入：`1 - Resources（资源）/`
+
+输出：`2 - Areas（领域）/`
+
+目标是长期领域手册，不堆摘要。更新 Areas 时必须区分：
+
+```text
+新增结论
+更新结论
+冲突结论
+过时内容
+仍需研究的问题
+```
+
+### 模式 3：Resources/Areas -> Projects，少而狠
+
+输入：Resources、Areas、已有候选、个人兴趣。
+
+输出：`3 - Projects（项目）/候选/`
+
+每个候选必须评估解决什么问题、个人匹配度、证据数量、验证成本、潜在价值、下一步最小验证动作、是否已有类似候选。目标是识别值得孵化的项目，不把普通灵感变成项目负担。
+
+### 模式 4：Resources/Areas -> Skills，规则化
+
+输入：稳定 Resources、Areas、反复出现的判断步骤。
+
+输出：`4 - Skills（技能）/待审/`
+
+每个 Skill 必须包含适用场景、输入条件、判断步骤、输出结果、反例、失效条件、复查周期。批准后再移入 `4 - Skills（技能）/` 正式区。
+
+### 模式 5：Knowledge -> Answer -> Review -> Resources/查询
+
+回答问题时先查个人知识库，并在回答中区分：
+
+```text
+库内已有
+推断建议
+外部补充
+仍需研究
+```
+
+只有用户明确要求保存时，才把高价值问答整理到 `0 - Inbox/待审/`；批准后再进入 `1 - Resources（资源）/查询/`。
+
+## 命令速查
+
+Minis/Codex 常用入口：
 
 ```bash
-# 会话与维护
+sh /var/minis/skills/compile-knowledge/scripts/wiki.sh <command> [args]
+```
+
+初始化与迁移：
+
+```bash
 wiki.sh init --root <vault>
-wiki.sh cache
-wiki.sh health
-wiki.sh health-save
-wiki.sh all
-
-# 摄入周边
-wiki.sh ingest-draft raw/收件箱/xxx.md
-wiki.sh compile-source raw/收件箱/xxx.md
-wiki.sh review
-wiki.sh convert <文件>
-
-# 查询与导航
-wiki.sh search "关键词"
-wiki.sh graph
-wiki.sh moc
-wiki.sh p-index
-wiki.sh p-index --generate
-
-# Loop 工具
-wiki.sh auto-research
-wiki.sh research-status
-wiki.sh research "主题"
-
-# 沉淀与孵化
-wiki.sh skill 概念/xxx.md
-wiki.sh candidate 概念/xxx.md --name "项目名称"
-wiki.sh candidate --idea "想法文字"
-wiki.sh candidate-from-draft raw/待审/xxx.semantic.md --index 1
-wiki.sh merge-manual raw/待审/xxx.semantic.md
-
-# 日记
-wiki.sh journal
-wiki.sh journal --list
-wiki.sh journal --extract
-wiki.sh review-stale
+wiki.sh migrate-para --root <vault> --dry-run
+wiki.sh migrate-para --root <vault> --apply
 ```
 
-## Workflow Index
+Inbox 编译：
 
-### WF1 摄入
+```bash
+wiki.sh convert <file> --root <vault>
+wiki.sh ingest-draft "0 - Inbox/待处理/xxx.md" --root <vault>
+wiki.sh compile-source "0 - Inbox/待处理/xxx.md" --root <vault>
+```
 
-用于“加工文章、录入知识库、保存到知识库”。先把原文编译成语义待审稿，再由用户批准知识页、手册、P-index、候选卡或研究缺口。细节见 [工作流细节](references/workflows.md#WF1-摄入)。
+审阅后流转：
 
-### WF2 审阅
+```bash
+wiki.sh merge-manual "0 - Inbox/待审/xxx.semantic.md" --root <vault>
+wiki.sh candidate-from-draft "0 - Inbox/待审/xxx.semantic.md" --root <vault> --index 1
+wiki.sh skill "1 - Resources（资源）/概念/xxx.md" --wiki-root <vault>
+wiki.sh answer-draft --root <vault> --question "..." --answer "..."
+wiki.sh review --root <vault>
+```
 
-用户在 Obsidian 中把待审稿改为 `status: approved` 或 `status: rejected`，然后运行 `wiki.sh review`。通过后进入目标目录；退回后等待重生成。细节见 [工作流细节](references/workflows.md#WF2-审阅)。
+查询与维护：
 
-### WF3 查询
+```bash
+wiki.sh search "关键词" --root <vault>
+wiki.sh p-index --generate --root <vault>
+wiki.sh health --root <vault>
+wiki.sh health-save --root <vault>
+wiki.sh graph --root <vault>
+wiki.sh moc --root <vault>
+wiki.sh cache --root <vault>
+wiki.sh all
+```
 
-用于“知识库查询、问已有知识”。先读 hot cache 和 index，再读少量相关页，回答时引用 `[[页面名]]`。细节见 [工作流细节](references/workflows.md#WF3-查询)。
+旧路径如 `raw/收件箱/xxx.md`、旧中文顶层目录和上一版 0-6 编号路径仍可作为输入被兼容解析到新版 0-7；新 vault 不再创建旧目录。
 
-### WF4 Skill 蒸馏
+## 工作流索引
 
-用于“蒸馏技能、提炼判断框架、生成 skill”。生成草稿到 `技能/待审/`，规则必须可证伪、有适用边界。细节见 [工作流细节](references/workflows.md#WF4-Skill-蒸馏)。
+- WF1 Inbox 编译：处理外部文章、PDF、截图、论文、网页、转录，见 [workflows](references/workflows.md#WF1-Inbox-编译)。
+- WF2 审阅流转：批准、退回、归档、合并，见 [workflows](references/workflows.md#WF2-审阅流转)。
+- WF3 查询回答：基于个人知识库回答问题，见 [workflows](references/workflows.md#WF3-查询回答)。
+- WF4 Resources -> Areas：沉淀领域手册，见 [workflows](references/workflows.md#WF4-Resources---Areas)。
+- WF5 Resources/Areas -> Projects：识别候选项目，见 [workflows](references/workflows.md#WF5-ResourcesAreas---Projects)。
+- WF6 Resources/Areas -> Skills：沉淀判断框架，见 [workflows](references/workflows.md#WF6-ResourcesAreas---Skills)。
+- WF7 Deep Research：只在缺口、冲突、时效风险时触发，见 [workflows](references/workflows.md#WF7-Deep-Research)。
+- WF8 日记提炼：只在用户明确要求时处理，见 [workflows](references/workflows.md#WF8-日记提炼)。
+- WF9 问答沉淀：保存有长期价值的回答，见 [workflows](references/workflows.md#WF9-问答沉淀)。
 
-### WF5 候选项目
+维护循环、健康检查和定期复查见 [loops-maintenance](references/loops-maintenance.md)。
 
-用于“候选项目、生成候选卡、孵化这个想法”。语义摄入先生成候选建议，用户批准后再输出到 `候选/`，聚焦核心问题、知识支撑和待验证假设。细节见 [工作流细节](references/workflows.md#WF5-候选项目)。
+领域细则按需读取：
 
-### WF6 Deep Research
+- 投资体系：[domain-investment](references/domain-investment.md)
+- AI 与自动化：[domain-ai-tools](references/domain-ai-tools.md)
+- 香港行动：[domain-hong-kong](references/domain-hong-kong.md)
 
-用于“深度研究、联网研究、研究一下”。脚本生成议程和接收结果，联网搜索由 Minis 原生能力完成，报告写入 `raw/收件箱/` 后再走摄入。细节见 [工作流细节](references/workflows.md#WF6-Deep-Research)。
+## 禁令
 
-### WF7 日记
-
-用于“日记、写日记、从日记提炼知识”。日记默认不主动处理；用户明确要求提炼时才读日记并走摄入。细节见 [工作流细节](references/workflows.md#WF7-日记提炼)。
-
-### WF8 查询存档
-
-用于把高质量回答存入 `查询/` 或 `合成/`。先询问用户，再创建页面。细节见 [工作流细节](references/workflows.md#WF8-查询存档)。
-
-### WF9 健康与维护
-
-用于“健康检查、知识库检查、维护、知识老化、研究议程”。运行 `wiki.sh health` 或相关维护命令。细节见 [Loop 与维护](references/loops-maintenance.md)。
-
-## Initialization Check
-
-首次使用或用户说“初始化/检查 wiki-kb”时：
-
-1. 检查 wiki 根目录可访问。
-2. 检查必要目录存在；目录清单见 [目录与 Frontmatter](references/structure-frontmatter.md)。
-3. 若 `_meta/hot.md` 不存在，运行 `wiki.sh cache`。
-4. 读取 `SCHEMA.md`。
-5. 向用户报告知识页数量、收件箱数量、待审数量，并提示可运行“健康检查”。
-
-## Maintenance Boundaries
-
-已验证的测试覆盖 init、ingest-draft、compile-source、candidate-from-draft、merge-manual、review-stale、search、graph、moc、P-index、confidence、fix、maintain、contradiction、convert、packaging metadata。当前 Windows 会话无 `sh`，`smoke_wiki_sh.py` 只验证到 `SMOKE_SKIP`；仍需在真实 Minis/POSIX 和真实 Obsidian vault 中验证 `wiki.sh`。
-
-`fix_health.py` 当前是保守修复器：补目录和 frontmatter，断链只报告，不自动改写。
-
-## Backlog
-
-暂不在本轮实现：
-
-- 真实 Minis/POSIX 环境 smoke test。
-- vault 初始化/迁移助手。
-- 更强的语义抽取和自动合并建议。
-- 发布打包元数据和安装体验。
+- 不把 Inbox 原文直接当正式知识。
+- 不绕过 `0 - Inbox/待审/` 直接写正式库。
+- 不把每个灵感都变成项目候选。
+- 不为每篇资料自动 Deep Research；只在缺口、冲突、时效风险或多次重复主题时触发。
+- 不用文件夹区分论文、笔记、资产；统一进 Inbox，用 `source_kind` 表示类型。
+- 不保留迁移后的旧目录 redirect/stub；旧路径只通过脚本兼容映射解析。

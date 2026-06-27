@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 """
-review_queue.py — 审阅队列处理器 v3
+review_queue.py — Knowledge Compiler 审阅队列处理器
 
-扫描 raw/待审/ 中的待审稿：
-  - status: approved → 将知识页写入 实体/概念/等，归档到 raw/已归档/
+扫描 0 - Inbox/待审/ 中的待审稿：
+  - status: approved → 将知识页写入 Resources/Projects/Areas，归档到 Archives
   - status: rejected → 读取退回原因，重新生成待审稿（status 重置为 review）
-
-v3 新增：
-  - 中文目录路径（实体/ 概念/ 对比/ 技能/ 候选/）
-  - 归档后更新 _meta/manifest.json 追踪记录
 
 用法：
   python3 scripts/review_queue.py [--wiki-root /path/to/wiki]
@@ -25,7 +21,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import get_wiki_root, RAW, DIRS
+from wiki_dirs import DIRS, RAW, get_wiki_root, resolve_vault_path
 
 # ──────────────────────────────────────────────
 # 工具函数
@@ -97,13 +93,13 @@ def update_index(wiki_root: Path, page_type: str, page_name: str, summary: str) 
         return
 
     type_map = {
-        "entity":     "实体",
-        "concept":    "概念",
-        "comparison": "对比",
-        "skill":      "技能",
-        "candidate":  "候选",
-        "synthesis":  "合成",
-        "query":      "查询",
+        "entity":     DIRS["实体"],
+        "concept":    DIRS["概念"],
+        "comparison": DIRS["对比"],
+        "skill":      DIRS["技能"],
+        "candidate":  DIRS["候选"],
+        "synthesis":  DIRS["知识库运营"],
+        "query":      DIRS["查询"],
     }
     section = type_map.get(page_type, page_type)
     entry_line = f"- [[{page_name}]] — {summary}\n"
@@ -149,9 +145,9 @@ def process_approved(review_file: Path, wiki_root: Path, dry_run: bool) -> str:
     处理 status: approved 的文件：
     1. 根据 type 字段确定目标目录
     2. 将 status 改为 approved（已经是了，确认写入）
-    3. 移动到 实体/概念/技能/候选/
-    4. 将原 review 文件归档到 raw/已归档/
-    5. 将关联的 raw/收件箱 文件也移到 raw/已归档/（如果 frontmatter 里有 inbox_source）
+    3. 移动到 Resources/Projects/Areas
+    4. 将原 review 文件归档到 Archives/已归档来源/
+    5. 将关联的 Inbox 原文也移到 Archives/已归档来源/
     6. 更新 index.md
     """
     text = review_file.read_text(encoding="utf-8")
@@ -162,19 +158,19 @@ def process_approved(review_file: Path, wiki_root: Path, dry_run: bool) -> str:
     page_name = review_file.stem  # 保留文件名（已是小写连字符格式）
 
     type_dir_map = {
-        "entity":     "实体",
-        "concept":    "概念",
-        "comparison": "对比",
-        "skill":      "技能",
-        "candidate":  "候选",
-        "synthesis":  "合成",
-        "query":      "查询",
+        "entity":     DIRS["实体"],
+        "concept":    DIRS["概念"],
+        "comparison": DIRS["对比"],
+        "skill":      DIRS["技能"],
+        "candidate":  DIRS["候选"],
+        "synthesis":  DIRS["知识库运营"],
+        "query":      DIRS["查询"],
     }
-    target_dir = wiki_root / type_dir_map.get(page_type, "概念")
+    target_dir = wiki_root / type_dir_map.get(page_type, DIRS["概念"])
 
-    # 如果是 skill，从 技能/待审/ 移到 技能/
+    # 如果是 skill，从 Resources/技能/待审/ 移到 Resources/技能/
     if page_type == "skill" and "待审" in str(review_file):
-        target_dir = wiki_root / "技能"
+        target_dir = wiki_root / DIRS["技能"]
 
     target_file = target_dir / review_file.name
     processed_dir = wiki_root / RAW["已归档"]
@@ -198,7 +194,7 @@ def process_approved(review_file: Path, wiki_root: Path, dry_run: bool) -> str:
         # 归档关联 inbox 文件
         inbox_source = meta.get("inbox_source", "").strip()
         if inbox_source:
-            inbox_file = wiki_root / inbox_source
+            inbox_file = resolve_vault_path(wiki_root, inbox_source)
             if inbox_file.exists():
                 shutil.move(str(inbox_file), str(processed_dir / inbox_file.name))
                 print(f"     → 已归档原文: {inbox_file.name}")
@@ -258,15 +254,15 @@ def main():
     parser = argparse.ArgumentParser(description="处理审阅队列")
     parser.add_argument("--wiki-root", help="wiki 根目录路径（默认自动检测）")
     parser.add_argument("--dry-run", action="store_true", help="仅显示，不执行")
-    parser.add_argument("--skill-review", action="store_true", help="同时扫描 技能/待审/")
+    parser.add_argument("--skill-review", action="store_true", help=f"同时扫描 {DIRS['技能待审']}/")
     args = parser.parse_args()
 
     wiki_root = Path(args.wiki_root) if args.wiki_root else find_wiki_root()
     review_dir = wiki_root / RAW["待审"]
-    skill_review_dir = wiki_root / "技能" / "待审"
+    skill_review_dir = wiki_root / DIRS["技能待审"]
 
     if not review_dir.exists():
-        print(f"⚠️  raw/待审/ 目录不存在，创建中...")
+        print(f"⚠️  {RAW['待审']}/ 目录不存在，创建中...")
         if not args.dry_run:
             review_dir.mkdir(parents=True, exist_ok=True)
 

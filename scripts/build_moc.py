@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate index.md as a Map of Content for wiki-kb."""
+"""Generate index.md as a Map of Content for Knowledge Compiler."""
 
 from __future__ import annotations
 
@@ -10,18 +10,22 @@ from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import ALL_PAGE_DIRS, RAW, get_wiki_root
+from wiki_dirs import ALL_PAGE_DIRS, DIRS, RAW, get_wiki_root
 from wiki_common import extract_wikilinks, markdown_files, page_title, parse_frontmatter, read_text, today, write_text
 
 
 DIR_LABELS = {
-    "实体": "人物、机构、产品、指数",
-    "概念": "思想、框架、模型",
-    "对比": "并排分析",
-    "合成": "综合结论",
-    "查询": "问答记录",
-    "技能": "可复用判断框架",
-    "候选": "项目想法",
+    DIRS["实体"]: "人物、机构、产品、指数",
+    DIRS["概念"]: "思想、框架、模型",
+    DIRS["对比"]: "并排分析",
+    DIRS["查询"]: "问答记录",
+    DIRS["问题索引"]: "按问题检索入口",
+    DIRS["技能"]: "可复用判断框架",
+    DIRS["候选"]: "项目想法",
+    DIRS["投资体系"]: "投资领域手册",
+    DIRS["AI与自动化"]: "AI 与自动化手册",
+    DIRS["香港行动"]: "香港行动手册",
+    DIRS["知识库运营"]: "知识库运营手册",
 }
 
 
@@ -38,7 +42,7 @@ def collect_pages(root: Path) -> list[dict]:
     for path, content in raw_pages:
         meta, body = parse_frontmatter(content)
         rel = str(path.relative_to(root)).replace("\\", "/")
-        top = path.relative_to(root).parts[0]
+        top = str(path.relative_to(root).parent).replace("\\", "/")
         summary = ""
         for line in body.splitlines():
             clean = line.strip()
@@ -73,7 +77,7 @@ def build_moc(root: Path) -> str:
         raw_counts[key] = len(list(directory.glob("*.md"))) if directory.is_dir() else 0
 
     lines = [
-        "# wiki-kb 索引",
+        "# Knowledge Compiler 索引",
         "",
         f"> 自动生成：{today()}",
         "",
@@ -116,7 +120,7 @@ def build_moc(root: Path) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build wiki-kb MOC index")
+    parser = argparse.ArgumentParser(description="Build Knowledge Compiler MOC index")
     parser.add_argument("--root", "--wiki-root", help="Wiki root")
     parser.add_argument("--print", action="store_true", help="Print without writing index.md")
     args = parser.parse_args()

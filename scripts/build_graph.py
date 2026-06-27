@@ -11,7 +11,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import ALL_PAGE_DIRS, get_wiki_root
+from wiki_dirs import ALL_PAGE_DIRS, DIRS, get_wiki_root
 from wiki_common import build_page_index, extract_wikilinks, markdown_files, page_title, parse_frontmatter, read_text, write_text
 
 TYPE_COLORS = {
@@ -25,20 +25,24 @@ TYPE_COLORS = {
 }
 
 DIR_TYPE = {
-    "实体": "entity",
-    "概念": "concept",
-    "对比": "comparison",
-    "查询": "query",
-    "合成": "synthesis",
-    "技能": "skill",
-    "候选": "candidate",
+    DIRS["实体"]: "entity",
+    DIRS["概念"]: "concept",
+    DIRS["对比"]: "comparison",
+    DIRS["查询"]: "query",
+    DIRS["问题索引"]: "question",
+    DIRS["技能"]: "skill",
+    DIRS["候选"]: "candidate",
+    DIRS["投资体系"]: "synthesis",
+    DIRS["AI与自动化"]: "synthesis",
+    DIRS["香港行动"]: "synthesis",
+    DIRS["知识库运营"]: "synthesis",
 }
 
 
 def page_type(path: Path, root: Path, meta: dict[str, str]) -> str:
     if meta.get("type"):
         return meta["type"].strip()
-    top = path.relative_to(root).parts[0]
+    top = str(path.relative_to(root).parent).replace("\\", "/")
     return DIR_TYPE.get(top, top)
 
 
@@ -106,7 +110,7 @@ def render_html(nodes: list[dict], edges: list[dict]) -> str:
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <title>wiki-kb graph</title>
+  <title>Knowledge Compiler graph</title>
   <style>
     body {{ font-family: system-ui, sans-serif; margin: 24px; line-height: 1.5; }}
     code, pre {{ background: #f4f4f4; padding: 2px 4px; border-radius: 4px; }}
@@ -114,7 +118,7 @@ def render_html(nodes: list[dict], edges: list[dict]) -> str:
   </style>
 </head>
 <body>
-  <h1>wiki-kb 知识图谱</h1>
+  <h1>Knowledge Compiler 知识图谱</h1>
   <p>节点：{len(nodes)}，边：{len(edges)}</p>
   <h2>节点</h2>
   <ul>

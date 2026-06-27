@@ -6,13 +6,13 @@ deep_research.py — Deep Research 联网研究助手 v3
   1. 接收研究主题（由用户或 Minis AI 提供）
   2. 接收 AI 联网搜索结果（通过 --result-file 或 stdin）
   3. 与知识库现有内容做差异分析（BM25 搜索）
-  4. 生成结构化研究报告，写入 raw/收件箱/（v3）
+  4. 生成结构化研究报告，写入 0 - Inbox/待处理/
   5. 打印后续加工建议
 
 注意：联网搜索本身由 Minis AI 完成，本脚本负责：
   - 初始化研究任务（生成研究议程）
   - 接收搜索结果并整合
-  - 写入 raw/收件箱/ + 日志
+  - 写入 Inbox + 日志
 
 用法：
   # 模式1：初始化研究任务（打印议程，Minis AI 去搜索）
@@ -80,9 +80,9 @@ def find_related_pages(wiki_root: Path, query: str, limit: int = 5) -> list[tupl
         query_terms = set(query.lower())
 
     search_dirs = [
-        wiki_root / "概念",
-        wiki_root / "实体",
-        wiki_root / "技能",
+        wiki_root / DIRS["概念"],
+        wiki_root / DIRS["实体"],
+        wiki_root / DIRS["技能"],
     ]
 
     scored = []
@@ -140,7 +140,7 @@ def write_research_report(
     result_content: str,
     wiki_root: Path,
 ) -> Path:
-    """整合搜索结果，生成结构化研究报告写入 raw/收件箱/。"""
+    """整合搜索结果，生成结构化研究报告写入 Inbox。"""
     today = date.today().isoformat()
     today_compact = date.today().strftime("%Y%m%d")
 
@@ -172,6 +172,7 @@ created: {today}
 updated: {today}
 type: research
 status: 收件箱
+source_kind: other
 tags: [research, 收件箱]
 sources: []
 research_query: {query}
@@ -207,7 +208,7 @@ research_query: {query}
 - 建议更新页面：{"、".join(f"[[{Path(rel).stem}]]" for rel, _ in related[:3]) if related else "（暂无）"}
 """
 
-    # 写入 raw/收件箱/
+    # 写入 Inbox/待处理/
     inbox_dir = wiki_root / RAW["收件箱"]
     inbox_dir.mkdir(parents=True, exist_ok=True)
     output_path = inbox_dir / filename
@@ -251,6 +252,7 @@ title: Research: {args.query}
 created: {date.today().isoformat()}
 type: research
 status: researching
+source_kind: other
 tags: [research, inbox]
 research_query: {args.query}
 ---
@@ -260,7 +262,7 @@ research_query: {args.query}
 <!-- 研究进行中，等待 Minis AI 完成联网搜索后填充内容。 -->
 """
             placeholder_path.write_text(placeholder_content, encoding="utf-8")
-            print(f"\n✅ 研究任务已初始化: raw/收件箱/{placeholder_name}")
+            print(f"\n✅ 研究任务已初始化: {RAW['收件箱']}/{placeholder_name}")
         return
 
     # 模式2/3：整合搜索结果
@@ -283,7 +285,7 @@ research_query: {args.query}
     print(f"\n✅ 研究报告已写入: {rel_path}")
     print(f"\n📝 下一步（加工）：")
     print(f"   告诉 Minis：「加工 {rel_path} 这篇文章」")
-    print(f"   Minis 会提取实体和概念，生成待审稿到 raw/待审/")
+    print(f"   AI 会提取实体和概念，生成待审稿到 {RAW['待审']}/")
 
     # 写日志
     append_log(wiki_root, f"Deep Research: {args.query} → {rel_path}")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert PDF/HTML/TXT/Markdown files into raw/收件箱 Markdown."""
+"""Convert PDF/HTML/TXT/Markdown files into the pending Inbox."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 from wiki_dirs import RAW, get_wiki_root
-from wiki_common import slugify, today, write_text
+from wiki_common import detect_source_kind, slugify, today, write_text
 
 
 def convert_pdf(path: Path) -> tuple[str | None, str | None]:
@@ -73,7 +73,7 @@ def convert(path: Path) -> tuple[str | None, str | None]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Convert a file into raw/收件箱 Markdown")
+    parser = argparse.ArgumentParser(description="Convert a file into 0 - Inbox/待处理 Markdown")
     parser.add_argument("input_file", help="PDF/HTML/TXT/Markdown file")
     parser.add_argument("--root", "--wiki-root", help="Wiki root")
     args = parser.parse_args()
@@ -93,12 +93,14 @@ def main() -> None:
     inbox.mkdir(parents=True, exist_ok=True)
     output = unique_output_path(inbox, slugify(source.stem, "converted"))
     title = source.stem
+    source_kind = detect_source_kind(source, content or "")
     markdown = f"""---
 title: {title}
 created: {today()}
 updated: {today()}
 type: source
 status: 收件箱
+source_kind: {source_kind}
 tags: [收件箱]
 sources:
   - {source}

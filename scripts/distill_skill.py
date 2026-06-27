@@ -2,17 +2,12 @@
 """
 distill_skill.py — Skill 蒸馏器 v3
 
-从 1-3 篇高置信度知识页（概念/实体）提炼「可复用判断框架」。
-生成 Skill 草稿存入 技能/待审/，等待人工在 Obsidian 中编辑并将 status 改为 approved。
-
-v3 新增：
-  - 中文目录路径（技能/待审/、概念/、实体/）
-  - M3 可证伪质量标准：草稿中加入自检清单
-  - 引用 ljskill-knowledge M3 层强度判断指导
+从 1-3 篇高置信度 Resources 知识页提炼「可复用判断框架」。
+生成 Skill 草稿存入 4 - Skills（技能）/待审/，等待人工审阅。
 
 用法：
-  python3 scripts/distill_skill.py 概念/资产配置.md 实体/巴菲特.md
-  python3 scripts/distill_skill.py --wiki-root /path/to/wiki 概念/etf.md
+  python3 scripts/distill_skill.py "1 - Resources（资源）/概念/资产配置.md"
+  python3 scripts/distill_skill.py --wiki-root /path/to/wiki "1 - Resources（资源）/概念/etf.md"
   python3 scripts/distill_skill.py --list-candidates   # 列出可蒸馏的高质量页面
 """
 
@@ -23,7 +18,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import get_wiki_root, DIRS, RAW
+from wiki_dirs import DIRS, get_wiki_root, resolve_vault_path
 
 
 # ──────────────────────────────────────────────
@@ -198,7 +193,7 @@ def list_skill_candidates(wiki_root: Path) -> None:
     """列出可蒸馏的高质量页面（confidence: high/medium，已通过）。"""
     print("📚 可蒸馏的高质量知识页面：\n")
 
-    search_dirs = [wiki_root / "概念", wiki_root / "实体"]
+    search_dirs = [wiki_root / DIRS["概念"], wiki_root / DIRS["实体"]]
     candidates = []
 
     for d in search_dirs:
@@ -246,14 +241,14 @@ def main():
 
     if not args.sources:
         print("❌ 请指定至少一个来源知识页路径。")
-        print("   用法: python3 scripts/distill_skill.py 概念/etf.md")
+        print(f"   用法: python3 scripts/distill_skill.py \"{DIRS['概念']}/etf.md\"")
         print("   或: python3 scripts/distill_skill.py --list-candidates")
         sys.exit(1)
 
     # 解析来源文件
     source_data = []
     for src_str in args.sources[:3]:  # 最多 3 个来源
-        src_path = wiki_root / src_str if not Path(src_str).is_absolute() else Path(src_str)
+        src_path = resolve_vault_path(wiki_root, src_str)
         if not src_path.exists():
             print(f"❌ 文件不存在: {src_path}")
             sys.exit(1)
@@ -284,8 +279,8 @@ def main():
     skill_filename = skill_name.lower().replace(" ", "-").replace("：", "-").replace(":", "-")
     skill_filename = "".join(c for c in skill_filename if c.isalnum() or c == "-")
 
-    # 输出路径 — 技能/待审/
-    skill_review_dir = wiki_root / "技能" / "待审"
+    # 输出路径 — Resources/技能/待审/
+    skill_review_dir = wiki_root / DIRS["技能待审"]
     skill_review_dir.mkdir(parents=True, exist_ok=True)
     output_path = skill_review_dir / f"{skill_filename}.md"
 
@@ -300,9 +295,9 @@ def main():
     draft = generate_skill_draft(source_data, wiki_root, skill_name)
     output_path.write_text(draft, encoding="utf-8")
 
-    print(f"\n✅ Skill 草稿已生成: 技能/待审/{skill_filename}.md")
+    print(f"\n✅ Skill 草稿已生成: {DIRS['技能待审']}/{skill_filename}.md")
     print(f"\n📝 下一步：")
-    print(f"   1. 在 Obsidian 中打开 技能/待审/{skill_filename}.md")
+    print(f"   1. 在 Obsidian 中打开 {DIRS['技能待审']}/{skill_filename}.md")
     print(f"   2. 根据注释中的来源内容，填写判断规则、反模式和能力边界")
     print(f"   3. 检查可证伪性自检清单（文件底部）")
     print(f"   4. 删除注释块（<!-- ... -->)）")
@@ -311,7 +306,7 @@ def main():
 
     # 写日志
     sources_list = ", ".join(f"[[{p.stem}]]" for p, _, _ in source_data)
-    append_log(wiki_root, f"蒸馏 Skill 草稿: [[技能/待审/{skill_filename}]]（来源: {sources_list}）")
+    append_log(wiki_root, f"蒸馏 Skill 草稿: [[{DIRS['技能待审']}/{skill_filename}]]（来源: {sources_list}）")
 
 
 if __name__ == "__main__":

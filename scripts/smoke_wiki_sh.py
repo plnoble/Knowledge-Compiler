@@ -15,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 WIKI_SH = SCRIPTS / "wiki.sh"
 
+sys.path.insert(0, str(SCRIPTS))
+from wiki_dirs import DIRS, RAW
+
 
 def find_shell(explicit: str | None) -> str | None:
     if explicit:
@@ -52,7 +55,7 @@ def smoke(shell: str) -> None:
         if init_proc.returncode != 0:
             raise RuntimeError(f"init failed\n{init_proc.stdout}\n{init_proc.stderr}")
 
-        concept = vault / "概念" / "alpha.md"
+        concept = vault / DIRS["概念"] / "alpha.md"
         concept.write_text(
             """---
 title: Alpha
@@ -70,7 +73,7 @@ Alpha links to [[beta]].
 """,
             encoding="utf-8",
         )
-        entity = vault / "实体" / "beta.md"
+        entity = vault / DIRS["实体"] / "beta.md"
         entity.write_text(
             """---
 title: Beta
@@ -88,7 +91,7 @@ Beta is a smoke-test entity.
 """,
             encoding="utf-8",
         )
-        inbox_source = vault / "raw" / "收件箱" / "grid.md"
+        inbox_source = vault / RAW["收件箱"] / "grid.md"
         inbox_source.write_text("网格交易 ETF 仓位占比 风险控制 自动化软件\n", encoding="utf-8")
 
         commands = [
@@ -100,14 +103,14 @@ Beta is a smoke-test entity.
             ["convert", str(source), "--root", str(vault)],
             ["p-index", "--generate", "--root", str(vault), "--limit", "3"],
             ["compile-source", str(inbox_source), "--root", str(vault)],
-            ["candidate-from-draft", str(vault / "raw" / "待审" / "grid.semantic.md"), "--root", str(vault), "--index", "1"],
+            ["candidate-from-draft", str(vault / RAW["待审"] / "grid.semantic.md"), "--root", str(vault), "--index", "1"],
         ]
         for command in commands:
             proc = run_command(shell, command, vault)
             if proc.returncode != 0:
                 joined = " ".join(command)
                 raise RuntimeError(f"command failed: {joined}\n{proc.stdout}\n{proc.stderr}")
-        review_file = vault / "raw" / "待审" / "grid.semantic.md"
+        review_file = vault / RAW["待审"] / "grid.semantic.md"
         review_file.write_text(review_file.read_text(encoding="utf-8").replace("status: review", "status: approved"), encoding="utf-8")
         for command in [
             ["merge-manual", str(review_file), "--root", str(vault)],

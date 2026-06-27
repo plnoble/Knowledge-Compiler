@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import get_wiki_root
+from wiki_dirs import ARCHIVE_BACKUPS, get_wiki_root, normalize_rel_path, resolve_vault_path
 from wiki_common import parse_frontmatter, read_text, render_frontmatter, today, write_text
 
 
@@ -51,13 +51,13 @@ def merge(root: Path, draft: Path, allow_review: bool = False) -> Path:
     if status != "approved" and not allow_review:
         raise PermissionError("draft status must be approved; pass --allow-review to override")
 
-    target_rel = meta.get("target_path", "").strip()
+    target_rel = normalize_rel_path(meta.get("target_path", "").strip())
     if not target_rel:
         raise ValueError("draft missing target_path")
     target = root / target_rel
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    backup_dir = root / "_archive" / "review-backups"
+    backup_dir = root / ARCHIVE_BACKUPS / "review-backups"
     backup_dir.mkdir(parents=True, exist_ok=True)
     if target.exists():
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -105,9 +105,7 @@ def main() -> None:
     args = parser.parse_args()
 
     root = get_wiki_root(override=args.root)
-    draft = Path(args.draft)
-    if not draft.is_absolute():
-        draft = root / draft
+    draft = resolve_vault_path(root, args.draft)
     try:
         target = merge(root, draft, args.allow_review)
     except (PermissionError, ValueError, FileNotFoundError) as exc:

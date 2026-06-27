@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Low-risk automatic fixes for wiki-kb health issues."""
+"""Low-risk automatic fixes for Knowledge Compiler health issues."""
 
 from __future__ import annotations
 
@@ -9,22 +9,25 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import ALL_PAGE_DIRS, CHECK_DIRS, ensure_dirs, get_wiki_root
+from wiki_dirs import ALL_PAGE_DIRS, CHECK_DIRS, DIRS, ensure_dirs, get_wiki_root
 from wiki_common import build_page_index, ensure_frontmatter, extract_wikilinks, markdown_files, read_text, today, write_text
 
 DIR_TYPE = {
-    "实体": "entity",
-    "概念": "concept",
-    "对比": "comparison",
-    "合成": "synthesis",
-    "查询": "query",
-    "技能": "skill",
-    "候选": "candidate",
+    DIRS["实体"]: "entity",
+    DIRS["概念"]: "concept",
+    DIRS["对比"]: "comparison",
+    DIRS["查询"]: "query",
+    DIRS["技能"]: "skill",
+    DIRS["候选"]: "candidate",
+    DIRS["投资体系"]: "synthesis",
+    DIRS["AI与自动化"]: "synthesis",
+    DIRS["香港行动"]: "synthesis",
+    DIRS["知识库运营"]: "synthesis",
 }
 
 
 def defaults_for(path: Path, root: Path) -> dict[str, str]:
-    top = path.relative_to(root).parts[0]
+    top = str(path.relative_to(root).parent).replace("\\", "/")
     return {
         "title": path.stem,
         "created": today(),
@@ -49,9 +52,9 @@ def fix_frontmatter(root: Path, dry_run: bool) -> int:
 
 
 def find_broken_links(root: Path) -> list[tuple[str, str]]:
-    page_index = build_page_index(root, ALL_PAGE_DIRS + ["问题索引"])
+    page_index = build_page_index(root, ALL_PAGE_DIRS + [DIRS["问题索引"]])
     broken = []
-    for path in markdown_files(root, ALL_PAGE_DIRS + ["问题索引"]):
+    for path in markdown_files(root, ALL_PAGE_DIRS + [DIRS["问题索引"]]):
         rel = str(path.relative_to(root)).replace("\\", "/")
         for link in extract_wikilinks(read_text(path)):
             if link not in page_index:

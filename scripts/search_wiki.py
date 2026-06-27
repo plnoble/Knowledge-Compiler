@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BM25 full-text search for the wiki-kb vault."""
+"""BM25 full-text search for the Knowledge Compiler vault."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import ALL_PAGE_DIRS, get_wiki_root
+from wiki_dirs import ALL_PAGE_DIRS, DIRS, get_wiki_root
 from wiki_common import markdown_files, page_title, parse_frontmatter, strip_frontmatter
 
 K1 = 1.5
@@ -82,7 +82,7 @@ class BM25Index:
 
 def build_index(root: Path) -> BM25Index:
     index = BM25Index()
-    for path in markdown_files(root, ALL_PAGE_DIRS + ["问题索引"]):
+    for path in markdown_files(root, ALL_PAGE_DIRS + [DIRS["问题索引"]]):
         content = path.read_text(encoding="utf-8", errors="replace")
         meta, body = parse_frontmatter(content)
         rel = str(path.relative_to(root)).replace("\\", "/")
@@ -108,7 +108,7 @@ def excerpt(body: str, query: str, length: int = 100) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Search wiki-kb pages")
+    parser = argparse.ArgumentParser(description="Search Knowledge Compiler pages")
     parser.add_argument("query", help="Search query")
     parser.add_argument("--root", "--wiki-root", help="Wiki root")
     parser.add_argument("--limit", type=int, default=10, help="Maximum results")

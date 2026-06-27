@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Conservative maintenance for wiki-kb pages."""
+"""Conservative maintenance for Knowledge Compiler pages."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
-from wiki_dirs import ALL_PAGE_DIRS, CHECK_DIRS, get_wiki_root
+from wiki_dirs import ALL_PAGE_DIRS, CHECK_DIRS, DIRS, get_wiki_root
 from wiki_common import extract_wikilinks, markdown_files, parse_frontmatter, read_text, render_frontmatter, today, write_text
 
 
@@ -35,8 +35,8 @@ def add_missing_sources(root: Path, limit: int, dry_run: bool) -> int:
 
 def inbound_counts(root: Path) -> Counter:
     counts: Counter[str] = Counter()
-    stems = {path.stem for path in markdown_files(root, ALL_PAGE_DIRS + ["问题索引"])}
-    for path in markdown_files(root, ALL_PAGE_DIRS + ["问题索引"]):
+    stems = {path.stem for path in markdown_files(root, ALL_PAGE_DIRS + [DIRS["问题索引"]])}
+    for path in markdown_files(root, ALL_PAGE_DIRS + [DIRS["问题索引"]]):
         for link in extract_wikilinks(read_text(path)):
             target = Path(link).stem
             if target in stems:
@@ -45,7 +45,7 @@ def inbound_counts(root: Path) -> Counter:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Maintain wiki-kb metadata")
+    parser = argparse.ArgumentParser(description="Maintain Knowledge Compiler metadata")
     parser.add_argument("--root", "--wiki-root", help="Wiki root")
     parser.add_argument("--limit", type=int, default=500, help="Maximum pages to update")
     parser.add_argument("--dry-run", action="store_true", help="Report without writing")

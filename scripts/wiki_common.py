@@ -1,4 +1,4 @@
-"""Shared helpers for wiki-kb maintenance scripts."""
+"""Shared helpers for compile-knowledge maintenance scripts."""
 
 from __future__ import annotations
 
@@ -96,6 +96,25 @@ def slugify(value: str, default: str = "untitled") -> str:
     slug = value.lower().replace(" ", "-").replace("：", "-").replace(":", "-")
     slug = "".join(ch for ch in slug if ch.isalnum() or ch in "-_")
     return slug.strip("-_") or default
+
+
+def detect_source_kind(path: Path, text: str = "") -> str:
+    """Infer source_kind frontmatter from file suffix and lightweight clues."""
+    suffix = path.suffix.lower()
+    if suffix == ".pdf":
+        return "pdf"
+    if suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".svg"}:
+        return "image"
+    lowered = f"{path.name}\n{text[:800]}".lower()
+    if any(token in lowered for token in ["screenshot", "截图"]):
+        return "screenshot"
+    if any(token in lowered for token in ["transcript", "转录", "访谈逐字稿"]):
+        return "transcript"
+    if any(token in lowered for token in ["doi:", "abstract", "arxiv", "论文", "paper"]):
+        return "paper"
+    if suffix in {".md", ".markdown", ".txt", ".html", ".htm"}:
+        return "article"
+    return "other"
 
 
 def today() -> str:

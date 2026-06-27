@@ -1,5 +1,5 @@
 #!/bin/sh
-# Unified wiki-kb command entrypoint.
+# Unified Knowledge Compiler command entrypoint.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 SCRIPTS=${WIKI_KB_SCRIPTS:-$SCRIPT_DIR}
@@ -13,9 +13,10 @@ run_py() {
 
 usage() {
   cat <<'EOF'
-wiki-kb commands:
+compile-knowledge commands:
 
   init [--root PATH]              Initialize a vault structure
+  migrate-para [--root PATH]      Migrate old wiki-kb folders into 0-7 layout
   health [args]                   Run health check
   health-save [args]              Run health check and save report
   fix [args]                      Conservative repair/report helper
@@ -33,6 +34,7 @@ wiki-kb commands:
 
   ingest-draft <source> [args]    Create a review draft with hash de-dupe
   compile-source <source> [args]  Create a semantic review draft
+  answer-draft [args]             Create a review-only query draft from an answer
   candidate-from-draft <draft>    Promote a candidate suggestion
   merge-manual <draft> [args]     Merge approved draft into a manual with backup
   review [args]                   Process review queue
@@ -53,6 +55,10 @@ case "$1" in
   init)
     shift
     run_py init_vault.py "$@"
+    ;;
+  migrate-para)
+    shift
+    run_py migrate_para.py "$@"
     ;;
   health)
     shift
@@ -144,6 +150,10 @@ case "$1" in
     shift
     run_py compile_source.py "$@"
     ;;
+  answer-draft)
+    shift
+    run_py answer_draft.py "$@"
+    ;;
   candidate-from-draft)
     if [ -z "$2" ]; then
       echo "Usage: wiki candidate-from-draft <draft> [args]" >&2
@@ -198,7 +208,7 @@ case "$1" in
       run_py generate_p_index.py "$@"
     else
       WIKI_ROOT="${WIKI_ROOT:-/var/minis/mounts/wiki}"
-      question_dir="$WIKI_ROOT/问题索引"
+      question_dir="$WIKI_ROOT/1 - Resources（资源）/问题索引"
       echo "P-index stats"
       echo "Wiki: $WIKI_ROOT"
       if [ -d "$question_dir" ]; then
