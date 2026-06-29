@@ -21,6 +21,13 @@ description: Turn a personal Obsidian vault into a review-gated Knowledge Compil
 
 正式写入必须经过待审；不要把未批准内容直接污染 Resources、Areas、Projects 或 Skills。
 
+## 第一原则：只喂入，不整理
+
+- 用户只负责选择高价值资料、放进 Inbox、做最终审阅判断。
+- AI 负责分类、拆解、关联、归档、维护；不要要求用户手动决定分类、标签或目标目录。
+- `0 - Inbox/待处理/` 与 `5 - Archives（归档）/已归档来源/` 是事实来源层；原文内容不可改写，只能移动、归档或引用。
+- AI 生成内容不能当作新的外部事实来源反复喂入；有价值输出只能进入待审稿或正式库，并保留来源性质。
+
 ## 启动协议
 
 1. 先确定 vault root；不确定时运行 `wiki.sh init --root <vault>` 或询问用户。
@@ -87,7 +94,7 @@ log.md
 原文要点 -> 是否沉淀 -> 目标 Resource -> 未处理原因
 ```
 
-语义待审稿还必须生成 Impact Review：
+语义待审稿还必须生成 Impact Review 和 Relationship Discovery：
 
 ```text
 可能新增的 Resources
@@ -100,7 +107,7 @@ log.md
 仍需研究的问题
 ```
 
-脚本可创建语义待审稿和 coverage map；具体 Resource 页面仍由 AI/用户审阅后写入。
+脚本可创建语义待审稿、coverage map、关系发现建议和摄入后追问；具体 Resource 页面仍由 AI/用户审阅后写入。
 
 ### 模式 2：Resources -> Areas，精而准
 

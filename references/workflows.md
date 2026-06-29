@@ -2,6 +2,12 @@
 
 只在执行加工、审阅、查询、领域汇总、候选识别、技能沉淀、研究、日记或问答沉淀任务时读取本文件。
 
+## 输入边界：事实来源不可变
+
+- `0 - Inbox/待处理/` 只放外部输入和用户原始记录；AI 不改写原文。
+- AI 生成内容不能回流成外部事实来源；需要保留时进入 `0 - Inbox/待审/`，批准后再沉淀。
+- 用户只喂入和审阅，AI 负责整理动作：分类、关联、覆盖检查、影响面审查、归档和维护。
+
 ## WF1 Inbox 编译
 
 触发例：`加工 0 - Inbox/待处理/xxx.md`、`处理这篇文章`、`把这个加入知识库`。
@@ -9,13 +15,14 @@
 步骤：
 
 1. 读 `_meta/hot.md`、`index.md`、相关已有 Resources/Areas。
-2. 运行 `wiki.sh compile-source "0 - Inbox/待处理/xxx.md" --root <vault>` 生成语义待审稿和 Source Coverage Map。
+2. 运行 `wiki.sh compile-source "0 - Inbox/待处理/xxx.md" --root <vault>` 生成语义待审稿、Source Coverage Map、Impact Review 和 Relationship Discovery。
 3. 完整读取原文；不要只看摘要。
 4. 以高召回提取实体、概念、对比、问题、操作步骤、风险、反例、时效信息和候选机会。
 5. 所有结果先留在 `0 - Inbox/待审/`，保持 `status: review`。
 6. Source Coverage Map 必须覆盖原文主要要点，标出是否已沉淀、目标 Resource 和未处理原因。
 7. 语义待审稿必须包含 Impact Review / 影响面审查：可能新增或更新的 Resources、影响的 Areas/Projects/Skills、冲突或过时内容、不更新原因、仍需研究的问题。
-8. 汇报创建的待审项、覆盖不足、冲突和需要用户判断的点。
+8. 语义待审稿必须包含 Relationship Discovery：可连接的已有 Resources/Areas、建议 wikilinks、可能知识簇、孤立风险和未来查询入口。
+9. 汇报创建的待审项、覆盖不足、冲突、关系发现和需要用户判断的点；并提出至少一个摄入后可追问的问题。
 
 命令：
 

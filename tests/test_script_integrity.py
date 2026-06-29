@@ -404,6 +404,8 @@ sources: [0 - Inbox/待处理/source.md]
 
             review_text = review.read_text(encoding="utf-8")
             self.assertIn("workflow: semantic-compile", review_text)
+            self.assertIn("Relationship Discovery / 关系发现", review_text)
+            self.assertIn("## 摄入后建议追问", review_text)
             self.assertIn("source_kind: article", review_text)
             self.assertIn(f"inbox_source: {INBOX_PENDING}/grid.md", review_text)
             self.assertIn(f"target_path: {AREA_INVESTMENT}/投资策略手册.md", review_text)
@@ -766,6 +768,64 @@ review_after: 2026-04-01
             self.assertIn("N/A", combined)
             self.assertNotIn("健康度：100%", combined)
 
+    def test_hot_cache_is_status_dashboard(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            vault = Path(tmp) / "vault"
+            self.assertEqual(self.run_script(SCRIPTS / "init_vault.py", "--root", vault).returncode, 0)
+            alpha = vault / RESOURCE_CONCEPT / "alpha.md"
+            beta = vault / RESOURCE_CONCEPT / "beta.md"
+            alpha.write_text("""---
+title: Alpha
+created: 2026-06-29
+updated: 2026-06-29
+type: concept
+status: approved
+tags: []
+sources: []
+confidence: medium
+---
+
+# Alpha
+
+> [!矛盾] Alpha has a conflict.
+""", encoding="utf-8")
+            beta.write_text("""---
+title: Beta
+created: 2026-06-29
+updated: 2026-06-29
+type: concept
+status: approved
+tags: []
+sources: []
+confidence: medium
+---
+
+# Beta
+
+Links to [[alpha]] as an important relation.
+""", encoding="utf-8")
+            (vault / "log.md").write_text("""# 操作日志
+
+## [2026-06-29] 新建链接
+- [[alpha]] -> [[beta]]：测试关系
+""", encoding="utf-8")
+
+            proc = self.run_script(SCRIPTS / "build_hot_cache.py", "--root", vault)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            hot = (vault / "_meta" / "hot.md").read_text(encoding="utf-8")
+            for heading in [
+                "Knowledge Compiler 状态仪表盘",
+                "最近处理记录",
+                "待处理与待审积压",
+                "活跃 Resources / Areas",
+                "未解决冲突",
+                "近期重要新连接",
+                "可能的输入偏科与知识空白",
+            ]:
+                self.assertIn(heading, hot)
+            self.assertIn("alpha.md", hot)
+            self.assertIn("[[alpha]] -> [[beta]]", hot)
+
     def test_audit_fixes_are_locked_by_static_expectations(self):
         wiki_sh = (SCRIPTS / "wiki.sh").read_text(encoding="utf-8")
         self.assertIn("run_py review_queue.py --skill-review", wiki_sh)
@@ -809,6 +869,20 @@ review_after: 2026-04-01
         combined = (proc.stdout + proc.stderr).strip()
         self.assertEqual(proc.returncode, 0, combined)
         self.assertRegex(combined, r"SMOKE_(OK|SKIP)")
+
+    def test_feed_not_organize_principles_are_documented(self):
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        manual_text = (ROOT / "docs" / "operation-manual.md").read_text(encoding="utf-8")
+        workflows_text = (ROOT / "references" / "workflows.md").read_text(encoding="utf-8")
+        loops_text = (ROOT / "references" / "loops-maintenance.md").read_text(encoding="utf-8")
+
+        for text_blob in [skill_text, manual_text]:
+            self.assertIn("只喂入，不整理", text_blob)
+            self.assertIn("原文内容不可改写", text_blob)
+            self.assertIn("AI 生成内容不能", text_blob)
+        self.assertIn("事实来源不可变", workflows_text)
+        self.assertIn("Relationship Discovery", workflows_text)
+        self.assertIn("状态仪表盘", loops_text)
 
     def test_skill_markdown_is_slim_and_references_exist(self):
         skill_path = ROOT / "SKILL.md"

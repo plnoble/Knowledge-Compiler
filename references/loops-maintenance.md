@@ -6,11 +6,15 @@
 
 ### Loop 1 引用追踪
 
-`build_hot_cache.py` 统计 wikilink 入链，更新 `_meta/hot.md`。高被引页面优先深化、合并进 Area，或蒸馏为 Skill。
+`build_hot_cache.py` 统计 wikilink 入链并生成 `_meta/hot.md` 状态仪表盘。高被引页面优先深化、合并进 Area，或蒸馏为 Skill。
 
 ```bash
 wiki.sh cache --root <vault>
 ```
+
+## hot.md 状态仪表盘
+
+`_meta/hot.md` 是跨会话状态仪表盘，不是普通笔记。它应显示最近处理记录、待处理与待审积压、活跃 Resources/Areas、未解决冲突、近期重要新连接，以及可能的输入偏科与知识空白。使用时读取它来判断“知识库最近往哪里长”，不要手写维护。
 
 ### Loop 2 Skill 成熟度
 
@@ -71,7 +75,7 @@ wiki.sh all
 - `init_vault.py` 创建 0-7 目录、`SCHEMA.md`、`index.md`、`log.md` 和核心 `_meta` 文件。
 - `convert_to_md.py` 输出到 `0 - Inbox/待处理/`。
 - `ingest_draft.py` 输出到 `0 - Inbox/待审/` 并用 manifest SHA-256 去重。
-- `compile_source.py` 输出语义待审稿和 Source Coverage Map。
+- `compile_source.py` 输出语义待审稿、Source Coverage Map、Impact Review、Relationship Discovery 和摄入后建议追问。
 - `migrate_para.py` 是一次性旧目录迁移助手，不是长期知识处理模式。
 - `fix_health.py` 是保守修复器：补齐必要目录和 frontmatter，断链只报告。
 - `generate_p_index.py` 为未覆盖的概念/实体生成低风险问题索引种子。

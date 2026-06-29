@@ -180,11 +180,41 @@ def render_impact_review(rule: dict) -> str:
 """
 
 
+def render_relationship_discovery(rule: dict) -> str:
+    return f"""## Relationship Discovery / 关系发现
+
+### 可连接的已有 Resources
+
+- 待审：搜索同主题概念、实体、对比、查询页，列出建议建立或补充的链接。
+
+### 可连接的 Areas
+
+- `{rule['manual']}`：判断本文是否改变领域手册的结构、结论、步骤或风险边界。
+
+### 建议新增的 wikilinks
+
+- 待审：用 `[[wikilink]]` 形式列出明确关系，并说明连接理由。
+
+### 可能形成的知识簇
+
+- 待审：指出本文可能推动形成的新主题簇、跨领域连接或高频问题。
+
+### 孤立风险
+
+- 待审：若新知识暂时缺少连接，说明为什么仍值得保留或应降级处理。
+
+### 查询入口
+
+- 待审：列出未来用户可能会怎么问，以及应沉淀到哪些查询页或问题索引。
+"""
+
+
 def render_review(source: Path, source_rel: str, hash_key: str, text: str, rule: dict, source_kind: str) -> str:
     title = source.stem.replace("-", " ").replace("_", " ").strip() or source.stem
     p_questions = "\n".join(f"- {q}" for q in rule["questions"])
     candidate = render_candidate(rule, source_rel)
     impact_review = render_impact_review(rule)
+    relationship_discovery = render_relationship_discovery(rule)
     return f"""---
 title: 语义编译：{title}
 created: {today()}
@@ -231,6 +261,14 @@ source_hash: {hash_key}
 {p_questions}
 
 {impact_review}
+
+{relationship_discovery}
+
+## 摄入后建议追问
+
+- 这篇资料和哪些已有 Resources 或 Areas 产生了新关系？
+- 它是否改变了你对 `{rule['domain']}` 的一个旧判断？
+- 以后你可能会怎么问到这份资料？需要沉淀到 `1 - Resources（资源）/查询/` 或问题索引吗？
 
 ## Deep Research 缺口
 

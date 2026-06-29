@@ -159,11 +159,68 @@ def get_total_pages(root: Path) -> dict[str, int]:
     return counts
 
 
-def build_hot_cache(root: Path) -> str:
-    """生成 hot.md 内容。"""
-    today = date.today().isoformat()
+def get_unresolved_conflicts(root: Path, limit: int = 5) -> list[str]:
+    """Collect pages that appear to contain unresolved conflict markers."""
+    conflicts: list[str] = []
+    scan_dirs = list(dict.fromkeys([*ALL_PAGE_DIRS, RAW["\u5f85\u5ba1"]]))
+    for d in scan_dirs:
+        dp = root / d
+        if not dp.is_dir():
+            continue
+        for md_file in sorted(dp.glob("*.md")):
+            try:
+                content = md_file.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            lowered = content.lower()
+            if "[!\u77db\u76fe]" in content or "[!contradiction]" in lowered:
+                rel = str(md_file.relative_to(root)).replace("\\", "/")
+                conflicts.append(rel)
+            if len(conflicts) >= limit:
+                return conflicts
+    return conflicts
 
-    # 收集数据
+
+def get_recent_connections(root: Path, limit: int = 5) -> list[str]:
+    """Extract recent relationship/link hints from log.md."""
+    log_path = root / "log.md"
+    if not log_path.exists():
+        return []
+    content = log_path.read_text(encoding="utf-8", errors="replace")
+    connections: list[str] = []
+    relation_markers = ["\u94fe\u63a5", "\u5173\u7cfb", "\u5173\u8054", "->", "\u2194", "related"]
+    for line in content.splitlines():
+        clean = line.strip(" -")
+        if not clean:
+            continue
+        has_link = "[[" in clean and "]]" in clean
+        has_relation_word = any(marker in clean for marker in relation_markers)
+        if has_link and has_relation_word:
+            connections.append(clean)
+        if len(connections) >= limit:
+            break
+    return connections
+
+
+def build_bias_and_gap_notes(inbox_count: int, review_count: int, total_pages: int, top_pages: list[tuple[str, int, Path]], active_research: list[str]) -> list[str]:
+    notes: list[str] = []
+    if inbox_count > 30:
+        notes.append(f"\u5f85\u5904\u7406\u5df2\u6709 {inbox_count} \u7bc7\uff0c\u8f93\u5165\u901f\u5ea6\u53ef\u80fd\u8d85\u8fc7\u7f16\u8bd1\u901f\u5ea6\uff1b\u5efa\u8bae\u964d\u4f4e\u526a\u85cf\u6807\u51c6\u6216\u5206\u6279\u5904\u7406\u3002")
+    if review_count > 20:
+        notes.append(f"\u5f85\u5ba1\u5df2\u6709 {review_count} \u7bc7\uff0c\u6b63\u5f0f\u5e93\u66f4\u65b0\u53ef\u80fd\u88ab\u5ba1\u9605\u961f\u5217\u5361\u4f4f\u3002")
+    if total_pages > 20 and not top_pages:
+        notes.append("\u9875\u9762\u6570\u91cf\u5df2\u7ecf\u589e\u957f\uff0c\u4f46\u7f3a\u5c11\u9ad8\u8fde\u63a5\u8282\u70b9\uff1b\u9700\u8981\u52a0\u5f3a Relationship Discovery \u548c wikilink \u5efa\u8bae\u3002")
+    if active_research:
+        notes.append("\u7814\u7a76\u8bae\u7a0b\u4e2d\u4ecd\u6709\u672a\u5173\u95ed\u95ee\u9898\uff1b\u4f18\u5148\u5904\u7406\u4f1a\u5f71\u54cd\u6b63\u5f0f\u7ed3\u8bba\u7684\u95ee\u9898\u3002")
+    if not notes:
+        notes.append("\u6682\u65e0\u660e\u663e\u8f93\u5165\u504f\u79d1\uff1b\u7ee7\u7eed\u89c2\u5bdf\u9ad8\u9891\u4e3b\u9898\u3001\u4f4e\u8fde\u63a5\u9875\u9762\u548c\u672a\u89e3\u51b3\u51b2\u7a81\u3002")
+    return notes
+
+
+def build_hot_cache(root: Path) -> str:
+    """Generate hot.md as a Knowledge Compiler status dashboard."""
+    current_day = date.today().isoformat()
+
     top_pages = get_top_referenced(root, ALL_PAGE_DIRS, limit=10)
     recent_logs = get_recent_log_entries(root, limit=5)
     active_research = get_active_research(root)
@@ -171,83 +228,95 @@ def build_hot_cache(root: Path) -> str:
     inbox_count = get_inbox_count(root)
     page_counts = get_total_pages(root)
     total_pages = sum(page_counts.values())
+    conflicts = get_unresolved_conflicts(root)
+    recent_connections = get_recent_connections(root)
+    bias_notes = build_bias_and_gap_notes(inbox_count, review_count, total_pages, top_pages, active_research)
 
-    # ── 构建 hot.md ──
+    resource_counts = [(d, cnt) for d, cnt in page_counts.items() if d.startswith("1 - Resources") and cnt > 0]
+    area_counts = [(d, cnt) for d, cnt in page_counts.items() if d.startswith("2 - Areas") and cnt > 0]
+
     lines = [
         "---",
         "type: meta",
-        "title: 热缓存",
-        f"updated: {today}",
+        "title: Knowledge Compiler \u72b6\u6001\u4eea\u8868\u76d8",
+        f"updated: {current_day}",
+        "managed_by: compile-knowledge",
         "---",
         "",
-        "# 近期上下文",
+        "# Knowledge Compiler \u72b6\u6001\u4eea\u8868\u76d8",
         "",
-        f"## 最后更新",
-        f"{today}",
+        "## \u6700\u540e\u66f4\u65b0",
+        f"{current_day}",
+        "",
+        "## \u77e5\u8bc6\u5e93\u89c4\u6a21",
+        f"\u603b\u9875\u9762\uff1a**{total_pages}** \u9875",
+        f"\u5f85\u5904\u7406\uff1a**{inbox_count}** \u7bc7",
+        f"\u5f85\u5ba1\uff1a**{review_count}** \u7bc7",
         "",
     ]
 
-    # 知识库规模
-    lines += [
-        "## 知识库规模",
-        f"总页面：**{total_pages}** 页",
-        "",
-    ]
-    for d, cnt in page_counts.items():
-        if cnt > 0:
-            lines.append(f"- {d}/：{cnt} 页")
-    lines.append("")
-
-    # 最近操作记录
-    lines += ["## 近期操作"]
+    lines += ["## \u6700\u8fd1\u5904\u7406\u8bb0\u5f55"]
     if recent_logs:
         for entry in recent_logs:
             lines.append(f"- {entry}")
     else:
-        lines.append("- （暂无记录）")
+        lines.append("- \uff08\u6682\u65e0\u8bb0\u5f55\uff09")
     lines.append("")
 
-    # 最常被引用 TOP 页面（Loop 1）
-    lines += ["## 🔥 最常被引用（核心知识）"]
+    inbox_dir_name = RAW["\u6536\u4ef6\u7bb1"]
+    review_dir_name = RAW["\u5f85\u5ba1"]
+
+    lines += ["## \u5f85\u5904\u7406\u4e0e\u5f85\u5ba1\u79ef\u538b"]
+    if inbox_count or review_count:
+        if inbox_count:
+            lines.append(f"- `{inbox_dir_name}/`\uff1a{inbox_count} \u7bc7\u5f85\u7f16\u8bd1")
+        if review_count:
+            lines.append(f"- `{review_dir_name}/`\uff1a{review_count} \u7bc7\u5f85\u5ba1\u9605")
+    else:
+        lines.append("- \u5f53\u524d\u6ca1\u6709\u660e\u663e\u79ef\u538b\u3002")
+    lines.append("")
+
+    lines += ["## \u6d3b\u8dc3 Resources / Areas"]
     if top_pages:
+        lines.append("### \u9ad8\u8fde\u63a5 Resources")
         for name, count, path in top_pages:
             rel = path.relative_to(root)
-            dir_name = rel.parent.name
-            lines.append(f"- [[{name}]]（{dir_name}/，被引用 {count} 次）")
+            lines.append(f"- [[{name}]]\uff08{rel.parent}/\uff0c\u88ab\u5f15\u7528 {count} \u6b21\uff09")
     else:
-        lines.append("- （知识页较少，暂无引用统计）")
+        lines.append("- \u6682\u65e0\u9ad8\u8fde\u63a5\u9875\u9762\uff1b\u65b0\u5e93\u9700\u8981\u7ee7\u7eed\u79ef\u7d2f\u5173\u7cfb\u3002")
+    if resource_counts or area_counts:
+        lines.append("")
+        lines.append("### \u9875\u9762\u5206\u5e03")
+        for d, cnt in [*resource_counts, *area_counts]:
+            lines.append(f"- {d}/\uff1a{cnt} \u9875")
     lines.append("")
 
-    # 活跃研究方向（Loop 3）
-    lines += ["## 🔬 活跃研究方向"]
-    if active_research:
-        for topic in active_research:
-            lines.append(f"- {topic}")
+    lines += ["## \u672a\u89e3\u51b3\u51b2\u7a81"]
+    if conflicts:
+        for rel in conflicts:
+            lines.append(f"- `{rel}`")
     else:
-        lines.append("- （无进行中的研究议题）")
+        lines.append("- \u6682\u65e0\u663e\u5f0f `[!\u77db\u76fe]` \u6216 `[!contradiction]` \u6807\u8bb0\u3002")
     lines.append("")
 
-    # 待处理提醒
-    lines += ["## ⚡ 待处理提醒"]
-    reminders = []
-    if inbox_count > 0:
-        reminders.append(f"📥 {RAW['收件箱']}/ 有 **{inbox_count}** 篇待加工")
-    if review_count > 0:
-        reminders.append(f"⏳ {RAW['待审']}/ 有 **{review_count}** 篇待审阅")
-    if not reminders:
-        reminders.append("✅ 无积压，状态良好")
-    for r in reminders:
-        lines.append(f"- {r}")
+    lines += ["## \u8fd1\u671f\u91cd\u8981\u65b0\u8fde\u63a5"]
+    if recent_connections:
+        for entry in recent_connections:
+            lines.append(f"- {entry}")
+    else:
+        lines.append("- \u6682\u65e0\u53ef\u4ece\u65e5\u5fd7\u8bc6\u522b\u7684\u65b0\u8fde\u63a5\uff1b\u6444\u5165\u65f6\u8bf7\u8865\u5145 Relationship Discovery\u3002")
     lines.append("")
 
-    # 阅读指引（给 Minis 的说明）
-    lines += [
-        "## 📖 如何使用",
-        f"- 加工新文章：告诉 AI「加工 {RAW['收件箱']}/文件名.md」",
-        "- 提问：告诉 Minis「[你的问题]」，Minis 先读此缓存再检索知识页",
-        "- 审阅：在 Obsidian 改 frontmatter status: approved，再运行 wiki.sh review",
-        "",
-    ]
+    lines += ["## \u53ef\u80fd\u7684\u8f93\u5165\u504f\u79d1\u4e0e\u77e5\u8bc6\u7a7a\u767d"]
+    for note in bias_notes:
+        lines.append(f"- {note}")
+    lines.append("")
+
+    lines += ["## \u5982\u4f55\u4f7f\u7528\u8fd9\u4e2a\u4eea\u8868\u76d8"]
+    lines.append("- \u8bfb\uff0c\u4e0d\u8981\u624b\u5199\uff1b\u5b83\u662f AI \u7ef4\u62a4\u7684\u8de8\u4f1a\u8bdd\u72b6\u6001\u3002")
+    lines.append("- \u6bcf\u6b21\u5f00\u59cb\u52a0\u5de5\u524d\u5148\u770b\u6700\u8fd1\u5904\u7406\u8bb0\u5f55\u3001\u672a\u89e3\u51b3\u51b2\u7a81\u548c\u8f93\u5165\u504f\u79d1\u3002")
+    lines.append("- \u51b2\u7a81\u548c\u5f85\u5ba1\u79ef\u538b\u4f18\u5148\u7ea7\u9ad8\u4e8e\u7ee7\u7eed\u526a\u85cf\u65b0\u8d44\u6599\u3002")
+    lines.append("")
 
     return "\n".join(lines)
 

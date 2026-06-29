@@ -4,6 +4,12 @@
 
 展示名：Knowledge Compiler / 知识编译器。
 
+## 第一原则：只喂入，不整理
+
+你的日常动作只应该是：把值得保存的资料放进 `0 - Inbox/待处理/`，审核 `0 - Inbox/待审/`，批准真正值得进入正式库的结果。分类、拆解、建立链接、提出更新建议、归档和维护由 AI 执行。
+
+`0 - Inbox/待处理/` 与 `5 - Archives（归档）/已归档来源/` 是事实来源层，原文内容不可改写。AI 生成内容不能当作新的外部事实来源循环喂入；有长期价值时，先变成待审稿，再由你批准进入 Resources、Areas、Projects 或 Skills。
+
 ## 安装与调用
 
 Codex 技能目录建议使用新名字：
@@ -90,7 +96,7 @@ wiki.sh migrate-para --root <vault> --apply
 wiki.sh ingest-draft "0 - Inbox/待处理/xxx.md" --root <vault>
 ```
 
-生成语义编译待审稿、Source Coverage Map 和 Impact Review：
+生成语义编译待审稿、Source Coverage Map、Impact Review 和 Relationship Discovery：
 
 ```bash
 wiki.sh compile-source "0 - Inbox/待处理/xxx.md" --root <vault>
@@ -109,7 +115,11 @@ Coverage Map 必须包含：
 原文要点 | 是否沉淀 | 目标 Resource | 未处理原因
 ```
 
-Impact Review 必须包含：可能新增/更新的 Resources、可能影响的 Areas/Projects/Skills、冲突或过时内容、不更新原因、仍需研究的问题。
+Impact Review 必须包含：可能新增/更新的 Resources、可能影响的 Areas/Projects/Skills、冲突或过时内容、不更新原因、仍需研究的问题。Relationship Discovery 必须补充：可连接的已有页面、建议新增 wikilinks、可能形成的知识簇、孤立风险和未来查询入口。
+
+## 摄入后查询闭环
+
+每次完成一篇资料的语义编译后，至少提出 1 个和个人知识库相关的问题，例如“这篇资料改变了我对哪个领域的理解？”“它和旧 Resources 有什么冲突？”“以后我会怎么问到它？”。如果答案有长期价值，只生成 `0 - Inbox/待审/*.answer.md`，不直接写入正式查询页。
 
 ## 审阅与正式沉淀
 
